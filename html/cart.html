@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cart — CyberMart</title>
+<link rel="stylesheet" href="../css/style.css"/>
+<style>
+.cart-item{display:flex;gap:1rem;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:0.8rem;}
+.cart-icon{font-size:2rem;width:56px;height:56px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border-radius:8px;flex-shrink:0;}
+.cart-info{flex:1;}
+.cart-name{font-weight:700;font-size:0.9rem;}
+.cart-seller{color:var(--muted);font-size:0.8rem;}
+.cart-price{font-family:var(--font-mono);color:var(--accent);font-weight:700;}
+.cart-summary{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;}
+.summary-row{display:flex;justify-content:space-between;margin-bottom:0.7rem;font-size:0.9rem;}
+.summary-row.total{font-weight:800;font-size:1.1rem;border-top:1px solid var(--border);padding-top:0.7rem;margin-top:0.7rem;}
+.cart-layout{display:grid;grid-template-columns:1fr 320px;gap:1.5rem;align-items:start;}
+@media(max-width:700px){.cart-layout{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+<div class="container">
+  <div class="section-title">🛒 Your Cart</div>
+  <div class="cart-layout">
+    <div>
+      <div class="cart-item">
+        <div class="cart-icon">🔑</div>
+        <div class="cart-info"><div class="cart-name">USB Hardware Security Key</div><div class="cart-seller">by SecureKeys Co. · Qty: 2</div></div>
+        <div class="cart-price">$89.00</div>
+        <button class="btn btn-danger btn-sm" style="margin-left:1rem">✕</button>
+      </div>
+      <div class="cart-item">
+        <div class="cart-icon">🛡️</div>
+        <div class="cart-info"><div class="cart-name">Mini Firewall Appliance Bundle</div><div class="cart-seller">by NetDefend · Qty: 1</div></div>
+        <div class="cart-price">$249.00</div>
+        <button class="btn btn-danger btn-sm" style="margin-left:1rem">✕</button>
+      </div>
+      <div class="cart-item">
+        <div class="cart-icon">💾</div>
+        <div class="cart-info"><div class="cart-name">Hardware-Encrypted USB Drive</div><div class="cart-seller">by DataVault · Qty: 1</div></div>
+        <div class="cart-price">$64.00</div>
+        <button class="btn btn-danger btn-sm" style="margin-left:1rem">✕</button>
+      </div>
+    </div>
+    <div class="cart-summary">
+      <div class="section-title" style="font-size:1.1rem">Order Summary</div>
+      <div class="summary-row"><span>Subtotal</span><span>$402.00</span></div>
+      <div class="summary-row"><span>Tax (8.25%)</span><span>$33.17</span></div>
+      <div class="summary-row"><span>Shipping</span><span class="tag tag-green">Free</span></div>
+      <div class="summary-row total"><span>Total</span><span style="color:var(--accent)">$435.17</span></div>
+      <a href="checkout.html" class="btn btn-primary form-btn" style="width:100%;display:block;text-align:center;margin-top:1rem">Proceed to Checkout</a>
+      <a href="products.html" class="btn btn-outline form-btn" style="width:100%;display:block;text-align:center;margin-top:0.5rem">Continue Shopping</a>
+    </div>
+  </div>
+</div>
+<script src="../js/api.js"></script>
+<script src="../js/ai-chat.js"></script>
+<script>requireAuth(['buyer']); renderNavbar();</script>
+</body>
+</html>

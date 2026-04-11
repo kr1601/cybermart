@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Products — CyberMart</title>
+<link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+<div class="container">
+  <div class="section-title">🛒 All Products</div>
+  <div class="filter-bar">
+    <input type="text" class="search-input" placeholder="🔍  Search products..." oninput="filterProducts(this.value)"/>
+    <button class="filter-chip active" onclick="filterCat('all', this)">All</button>
+    <button class="filter-chip" onclick="filterCat('network', this)">Network Testing</button>
+    <button class="filter-chip" onclick="filterCat('auth', this)">Auth Devices</button>
+    <button class="filter-chip" onclick="filterCat('storage', this)">Storage</button>
+  </div>
+  <div class="grid-3" id="products-grid"></div>
+</div>
+<footer>
+  <span>© 2025 CyberMart — Group 10</span>
+  <span class="tag tag-green">🔒 SSL Secured</span>
+</footer>
+<script src="../js/api.js"></script>
+<script src="../js/ai-chat.js"></script>
+<script>
+renderNavbar('products');
+renderProductCards(MOCK_PRODUCTS, 'products-grid');
+
+function filterCat(cat, btn) {
+  document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const list = cat === 'all' ? MOCK_PRODUCTS : MOCK_PRODUCTS.filter(p => p.cat === cat);
+  renderProductCards(list, 'products-grid');
+}
+function filterProducts(q) {
+  const list = MOCK_PRODUCTS.filter(p => p.name.toLowerCase().includes(q.toLowerCase()));
+  renderProductCards(list, 'products-grid');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Admin Dashboard — CyberMart</title>
+<link rel="stylesheet" href="../css/style.css"/>
+<style>
+body{display:flex;flex-direction:column;}
+.sidebar-avatar-admin{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--danger),#ff9500);display:flex;align-items:center;justify-content:center;font-size:1.15rem;font-weight:800;color:#000;margin-bottom:0.5rem;}
+.log-entry{display:flex;gap:1rem;align-items:flex-start;padding:0.7rem;border-radius:8px;font-size:0.82rem;font-family:var(--font-mono);border-left:2px solid;margin-bottom:0.5rem;background:var(--surface);}
+.log-entry.info{border-color:var(--accent2);}
+.log-entry.warn{border-color:var(--warn);}
+.log-entry.error{border-color:var(--danger);}
+.log-time{color:var(--muted);white-space:nowrap;}
+</style>
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+<div class="dash-layout">
+  <div class="sidebar">
+    <div class="sidebar-avatar-admin">A</div>
+    <div class="sidebar-name">Admin User</div>
+    <div class="sidebar-role"><span class="badge badge-admin">ADMIN</span></div>
+    <div class="sidebar-menu">
+      <button class="menu-item active" onclick="showTab('overview',this)">📊 Overview</button>
+      <button class="menu-item" onclick="showTab('sellers',this)">🏪 Seller Apps</button>
+      <button class="menu-item" onclick="showTab('users',this)">👥 Users</button>
+      <button class="menu-item" onclick="showTab('logs',this)">📋 Audit Logs</button>
+      <div class="divider"></div>
+      <button class="menu-item" onclick="logout()">🚪 Logout</button>
+    </div>
+  </div>
+  <div class="dash-content fade-in">
+
+    <!-- OVERVIEW -->
+    <div id="tab-overview">
+      <div class="section-title">Admin Overview</div>
+      <div class="stats-row">
+        <div class="stat-card green"><div class="stat-val">3</div><div class="stat-label">Pending Applications</div></div>
+        <div class="stat-card red"><div class="stat-val">7</div><div class="stat-label">Suspicious Events</div></div>
+        <div class="stat-card blue"><div class="stat-val">156</div><div class="stat-label">Total Users</div></div>
+        <div class="stat-card warn"><div class="stat-val">2</div><div class="stat-label">Locked Accounts</div></div>
+      </div>
+      <div class="alert alert-warn">⚠️ 3 failed login attempts detected for user <strong>unknown@ip.com</strong> — IP: 192.168.1.45</div>
+    </div>
+
+    <!-- SELLER APPS -->
+    <div id="tab-sellers" style="display:none">
+      <div class="section-title">Seller Applications</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Applicant</th><th>Company</th><th>Submitted</th><th>Category</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td>Maria Chen</td><td>CyberShield LLC</td><td>2025-06-14</td><td>Services</td><td><button class="btn btn-primary btn-sm" onclick="approve(this)">✓ Approve</button> <button class="btn btn-danger btn-sm" onclick="reject(this)">✗ Reject</button></td></tr>
+          <tr><td>James Thorn</td><td>NetDefend Co.</td><td>2025-06-13</td><td>Hardware</td><td><button class="btn btn-primary btn-sm" onclick="approve(this)">✓ Approve</button> <button class="btn btn-danger btn-sm" onclick="reject(this)">✗ Reject</button></td></tr>
+          <tr><td>Priya Nair</td><td>SecureCode Inc.</td><td>2025-06-11</td><td>Services</td><td><button class="btn btn-primary btn-sm" onclick="approve(this)">✓ Approve</button> <button class="btn btn-danger btn-sm" onclick="reject(this)">✗ Reject</button></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- USERS -->
+    <div id="tab-users" style="display:none">
+      <div class="section-title">User Management</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td>Alex Buyer</td><td>alex@email.com</td><td><span class="tag tag-green">Buyer</span></td><td><span class="tag tag-green">Active</span></td><td><button class="btn btn-danger btn-sm">🔒 Lock</button></td></tr>
+          <tr><td>SecureKeys Co.</td><td>keys@secure.com</td><td><span class="tag tag-blue">Seller</span></td><td><span class="tag tag-green">Active</span></td><td><button class="btn btn-danger btn-sm">🔒 Lock</button></td></tr>
+          <tr><td>Suspicious User</td><td>hack@malice.ru</td><td><span class="tag tag-green">Buyer</span></td><td><span class="tag tag-red">Locked</span></td><td><button class="btn btn-primary btn-sm">🔓 Unlock</button></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- AUDIT LOGS -->
+    <div id="tab-logs" style="display:none">
+      <div class="section-title">Audit Logs <span class="pulsing tag tag-green" style="font-size:0.7rem;margin-left:0.5rem">● LIVE</span></div>
+      <div class="log-entry info"><span class="log-time">14:32:01</span><span>LOGIN_SUCCESS · user: alex@email.com · IP: 10.0.0.1</span></div>
+      <div class="log-entry warn"><span class="log-time">14:28:44</span><span>LOGIN_FAIL · user: hack@malice.ru · IP: 192.168.1.45 · Attempt #3</span></div>
+      <div class="log-entry info"><span class="log-time">14:25:11</span><span>SELLER_APPROVED · admin: admin@cybermart.com · seller: CyberShield LLC</span></div>
+      <div class="log-entry info"><span class="log-time">14:18:03</span><span>ORDER_CREATED · #ORD-4512 · buyer: john@email.com · amount: $89.00</span></div>
+      <div class="log-entry error"><span class="log-time">14:05:29</span><span>ACCOUNT_LOCKED · admin: admin@cybermart.com · user: hack@malice.ru</span></div>
+      <div class="log-entry warn"><span class="log-time">13:58:17</span><span>RATE_LIMIT_HIT · endpoint: /auth/login · IP: 192.168.1.45</span></div>
+      <div class="log-entry info"><span class="log-time">13:50:44</span><span>PRODUCT_UPDATED · seller: keys@secure.com · product: USB Security Key Pro</span></div>
+      <div class="log-entry info"><span class="log-time">13:44:12</span><span>MFA_VERIFIED · user: seller@netdefend.com · method: TOTP</span></div>
+    </div>
+
+  </div>
+</div>
+<script src="../js/api.js"></script>
+<script src="../js/ai-chat.js"></script>
+<script>
+requireAuth(['admin']);
+renderNavbar();
+
+function showTab(tab, btn) {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
+  document.getElementById('tab-' + tab).style.display = 'block';
+  document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+function approve(btn) { btn.closest('tr').querySelector('td:last-child').innerHTML = '<span class="tag tag-green">Approved</span>'; }
+function reject(btn)  { btn.closest('tr').querySelector('td:last-child').innerHTML = '<span class="tag tag-red">Rejected</span>'; }
+</script>
+</body>
+</html>

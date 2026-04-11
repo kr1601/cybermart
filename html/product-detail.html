@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Product — CyberMart</title>
+<link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+<div class="container" id="detail-root"></div>
+<footer>
+  <span>© 2025 CyberMart — Group 10</span>
+  <span class="tag tag-green">🔒 SSL Secured</span>
+</footer>
+<script src="../js/api.js"></script>
+<script src="../js/ai-chat.js"></script>
+<script>
+renderNavbar('products');
+
+(function renderDetail() {
+  function escapeDetailHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  const root = document.getElementById('detail-root');
+  const idParam = new URLSearchParams(window.location.search).get('id');
+  const p = getProductById(idParam);
+
+  if (!p) {
+    root.innerHTML =
+      '<div class="product-not-found">' +
+      '<div class="section-title" style="justify-content:center">Product not found</div>' +
+      '<p>We couldn’t find a product for this link. It may have been removed or the ID is invalid.</p>' +
+      '<a href="products.html" class="btn btn-primary">Back to Products</a>' +
+      '</div>';
+    document.title = 'Product not found — CyberMart';
+    return;
+  }
+
+  document.title = p.name + ' — CyberMart';
+
+  const tagHtml = p.tag
+    ? '<span class="tag tag-green">' + escapeDetailHtml(p.tag) + '</span>'
+    : '';
+
+  const featuresHtml = (p.features || []).map(function (f) {
+    return '<li>' + escapeDetailHtml(f) + '</li>';
+  }).join('');
+
+  root.innerHTML =
+    '<nav class="product-detail-breadcrumb" aria-label="Breadcrumb">' +
+    '<a href="products.html">Products</a> <span aria-hidden="true"> / </span> ' + escapeDetailHtml(p.name) +
+    '</nav>' +
+    '<div class="product-detail-grid">' +
+    '  <div class="product-detail-visual" aria-hidden="true">' + p.icon + '</div>' +
+    '  <div class="product-detail-main">' +
+    '    <h1>' + escapeDetailHtml(p.name) + '</h1>' +
+    '    <div class="product-detail-meta-row">' +
+    tagHtml +
+    '      <span class="card-meta">Sold by <strong style="color:var(--text)">' + escapeDetailHtml(p.seller) + '</strong></span>' +
+    '    </div>' +
+    '    <div class="product-detail-price">' + escapeDetailHtml(p.price) + '</div>' +
+    '    <p class="product-detail-desc">' + escapeDetailHtml(p.description) + '</p>' +
+    '    <div class="product-detail-features-title">Key features</div>' +
+    '    <ul class="product-detail-features">' + featuresHtml + '</ul>' +
+    '    <div class="product-detail-actions">' +
+    '      <button type="button" class="btn btn-primary" onclick="addToCart(' + p.id + ',' + JSON.stringify(p.name) + ')">Add to Cart</button>' +
+    '      <a href="products.html" class="btn btn-outline">Continue shopping</a>' +
+    '    </div>' +
+    '  </div>' +
+    '</div>';
+})();
+</script>
+</body>
+</html>

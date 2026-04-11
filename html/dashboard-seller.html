@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Seller Dashboard — CyberMart</title>
+<link rel="stylesheet" href="../css/style.css"/>
+<style>
+body{display:flex;flex-direction:column;}
+.sidebar-avatar-seller { width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent2),#a855f7);display:flex;align-items:center;justify-content:center;font-size:1.35rem;font-weight:800;color:#000;margin-bottom:0.5rem; }
+</style>
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+<div class="dash-layout">
+  <div class="sidebar">
+    <div class="sidebar-avatar-seller">S</div>
+    <div class="sidebar-name" id="sidebar-name">Seller</div>
+    <div class="sidebar-role"><span class="badge badge-seller">SELLER</span></div>
+    <div class="sidebar-menu">
+      <button class="menu-item active" onclick="showTab('overview',this)">📊 Overview</button>
+      <button class="menu-item" onclick="showTab('listings',this)">📦 My Listings</button>
+      <button class="menu-item" onclick="showTab('orders',this)">🛒 Orders</button>
+      <button class="menu-item" onclick="showTab('services',this)">🛠️ Services</button>
+      <div class="divider"></div>
+      <button class="menu-item" onclick="logout()">🚪 Logout</button>
+    </div>
+  </div>
+  <div class="dash-content fade-in">
+
+    <!-- OVERVIEW -->
+    <div id="tab-overview">
+      <div class="section-title">Seller Dashboard</div>
+      <div class="alert alert-success">✅ Your account is verified. You can list products and services.</div>
+      <div class="stats-row">
+        <div class="stat-card green"><div class="stat-val">18</div><div class="stat-label">Active Listings</div></div>
+        <div class="stat-card blue"><div class="stat-val">43</div><div class="stat-label">Total Orders</div></div>
+        <div class="stat-card warn"><div class="stat-val">$3,240</div><div class="stat-label">Revenue (June)</div></div>
+        <div class="stat-card red"><div class="stat-val">2</div><div class="stat-label">Pending Shipments</div></div>
+      </div>
+    </div>
+
+    <!-- LISTINGS -->
+    <div id="tab-listings" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+        <div class="section-title" style="margin:0">My Listings</div>
+        <button class="btn btn-primary btn-sm">+ Add Product</button>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td>USB Security Key Pro</td><td>Auth Devices</td><td style="color:var(--accent);font-family:var(--font-mono)">$44.99</td><td>124</td><td><span class="tag tag-green">Active</span></td><td><button class="btn btn-outline btn-sm">Edit</button> <button class="btn btn-danger btn-sm">Delete</button></td></tr>
+          <tr><td>OTP Token Bundle (x5)</td><td>Auth Devices</td><td style="color:var(--accent);font-family:var(--font-mono)">$89.00</td><td>67</td><td><span class="tag tag-green">Active</span></td><td><button class="btn btn-outline btn-sm">Edit</button> <button class="btn btn-danger btn-sm">Delete</button></td></tr>
+          <tr><td>Smart Card Reader</td><td>Auth Devices</td><td style="color:var(--accent);font-family:var(--font-mono)">$32.00</td><td>0</td><td><span class="tag tag-red">Out of Stock</span></td><td><button class="btn btn-outline btn-sm">Edit</button> <button class="btn btn-danger btn-sm">Delete</button></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- ORDERS -->
+    <div id="tab-orders" style="display:none">
+      <div class="section-title">Orders (My Products Only)</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Order ID</th><th>Buyer</th><th>Product</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td><span style="font-family:var(--font-mono)">#ORD-4421</span></td><td>alex@email.com</td><td>USB Key x2</td><td style="color:var(--accent);font-family:var(--font-mono)">$89.00</td><td><span class="tag tag-green">Delivered</span></td><td><button class="btn btn-outline btn-sm">View</button></td></tr>
+          <tr><td><span style="font-family:var(--font-mono)">#ORD-4512</span></td><td>john@email.com</td><td>OTP Bundle</td><td style="color:var(--accent);font-family:var(--font-mono)">$89.00</td><td><span class="tag tag-warn">Processing</span></td><td><button class="btn btn-blue btn-sm">Ship</button></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- SERVICES -->
+    <div id="tab-services" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+        <div class="section-title" style="margin:0">Service Listings</div>
+        <button class="btn btn-primary btn-sm">+ Add Service</button>
+      </div>
+      <div class="grid-3" id="seller-services-grid"></div>
+    </div>
+
+  </div>
+</div>
+<script src="../js/api.js"></script>
+<script src="../js/ai-chat.js"></script>
+<script>
+requireAuth(['seller']);
+renderNavbar();
+document.getElementById('sidebar-name').textContent = getName() || 'Seller';
+renderServiceCards(MOCK_SERVICES.slice(0,2), 'seller-services-grid');
+
+function showTab(tab, btn) {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
+  document.getElementById('tab-' + tab).style.display = 'block';
+  document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Register — CyberMart</title>
+<link rel="stylesheet" href="../css/style.css"/>
+<style>
+body { display: flex; flex-direction: column; }
+main { flex: 1; display: flex; }
+.role-select { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+.role-option { border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem; cursor: pointer; transition: all 0.2s; text-align: center; background: var(--bg); }
+.role-option.selected { border-color: var(--accent); background: rgba(0,255,136,0.05); }
+.role-option .role-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+.role-option .role-name { font-size: 0.8rem; font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+<main>
+  <div class="auth-wrap">
+    <div class="auth-box fade-in">
+      <div class="auth-title">Create Account</div>
+      <div class="auth-sub">Join the secure marketplace</div>
+
+      <div id="error-msg" style="display:none" class="alert alert-warn"></div>
+      <div id="success-msg" style="display:none" class="alert alert-success"></div>
+
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input type="text" class="form-input" id="name" placeholder="Jane Doe"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-input" id="email" placeholder="you@example.com"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-input" id="password" placeholder="Min. 8 characters"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Account Type</label>
+        <div class="role-select">
+          <div class="role-option selected" onclick="selectRole(this, 'buyer')">
+            <div class="role-icon">🛒</div>
+            <div class="role-name">Buyer</div>
+          </div>
+          <div class="role-option" onclick="selectRole(this, 'seller')">
+            <div class="role-icon">🏪</div>
+            <div class="role-name">Seller</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary form-btn" onclick="doRegister()">Create Account</button>
+      <div class="form-hint">Already have an account? <a href="login.html">Sign in</a></div>
+    </div>
+  </div>
+</main>
+
+<script src="../js/api.js"></script>
+<script src="../js/ai-chat.js"></script>
+<script>
+renderNavbar();
+if (isLoggedIn()) redirectByRole(getRole());
+
+let selectedRole = 'buyer';
+
+function selectRole(el, role) {
+  document.querySelectorAll('.role-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedRole = role;
+}
+
+async function doRegister() {
+  const name     = document.getElementById('name').value.trim();
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const errEl    = document.getElementById('error-msg');
+  const okEl     = document.getElementById('success-msg');
+
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+
+  if (!name || !email || !password) {
+    errEl.textContent = '⚠ Please fill in all fields.'; errEl.style.display = 'flex'; return;
+  }
+  if (password.length < 8) {
+    errEl.textContent = '⚠ Password must be at least 8 characters.'; errEl.style.display = 'flex'; return;
+  }
+
+  // TODO: replace with real API call
+  // const data = await apiPost('/auth/register.php', { name, email, password, role: selectedRole });
+  // if (data.error) { errEl.textContent = data.error; errEl.style.display='flex'; return; }
+
+  okEl.textContent = '✅ Account created! Please check your email to verify. Redirecting to login...';
+  okEl.style.display = 'flex';
+  setTimeout(() => window.location.href = 'login.html', 2500);
+}
+</script>
+</body>
+</html>
