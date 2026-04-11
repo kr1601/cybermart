@@ -23,40 +23,92 @@
 <div id="navbar-placeholder"></div>
 <div class="container">
   <div class="section-title">🛒 Your Cart</div>
-  <div class="cart-layout">
-    <div>
-      <div class="cart-item">
-        <div class="cart-icon">🔑</div>
-        <div class="cart-info"><div class="cart-name">USB Hardware Security Key</div><div class="cart-seller">by SecureKeys Co. · Qty: 2</div></div>
-        <div class="cart-price">$89.00</div>
-        <button class="btn btn-danger btn-sm" style="margin-left:1rem">✕</button>
-      </div>
-      <div class="cart-item">
-        <div class="cart-icon">🛡️</div>
-        <div class="cart-info"><div class="cart-name">Mini Firewall Appliance Bundle</div><div class="cart-seller">by NetDefend · Qty: 1</div></div>
-        <div class="cart-price">$249.00</div>
-        <button class="btn btn-danger btn-sm" style="margin-left:1rem">✕</button>
-      </div>
-      <div class="cart-item">
-        <div class="cart-icon">💾</div>
-        <div class="cart-info"><div class="cart-name">Hardware-Encrypted USB Drive</div><div class="cart-seller">by DataVault · Qty: 1</div></div>
-        <div class="cart-price">$64.00</div>
-        <button class="btn btn-danger btn-sm" style="margin-left:1rem">✕</button>
-      </div>
-    </div>
+  <div id="loading" style="text-align:center;padding:2rem;color:#aaa">Loading cart...</div>
+  <div class="cart-layout" id="cart-layout" style="display:none">
+    <div id="cart-items"></div>
     <div class="cart-summary">
       <div class="section-title" style="font-size:1.1rem">Order Summary</div>
-      <div class="summary-row"><span>Subtotal</span><span>$402.00</span></div>
-      <div class="summary-row"><span>Tax (8.25%)</span><span>$33.17</span></div>
+      <div class="summary-row"><span>Subtotal</span><span id="subtotal">$0.00</span></div>
+      <div class="summary-row"><span>Tax (8.25%)</span><span id="tax">$0.00</span></div>
       <div class="summary-row"><span>Shipping</span><span class="tag tag-green">Free</span></div>
-      <div class="summary-row total"><span>Total</span><span style="color:var(--accent)">$435.17</span></div>
-      <a href="checkout.html" class="btn btn-primary form-btn" style="width:100%;display:block;text-align:center;margin-top:1rem">Proceed to Checkout</a>
+      <div class="summary-row total"><span>Total</span><span id="total" style="color:var(--accent)">$0.00</span></div>
+      <button onclick="doCheckout()" class="btn btn-primary form-btn" style="width:100%;display:block;text-align:center;margin-top:1rem">Proceed to Checkout</button>
       <a href="products.html" class="btn btn-outline form-btn" style="width:100%;display:block;text-align:center;margin-top:0.5rem">Continue Shopping</a>
     </div>
+  </div>
+  <div id="empty-cart" style="display:none;text-align:center;padding:3rem;color:var(--muted)">
+    <div style="font-size:3rem">🛒</div>
+    <div style="margin-top:1rem">Your cart is empty</div>
+    <a href="products.html" class="btn btn-primary" style="margin-top:1rem;display:inline-block">Browse Products</a>
   </div>
 </div>
 <script src="../js/api.js"></script>
 <script src="../js/ai-chat.js"></script>
-<script>requireAuth(['buyer']); renderNavbar();</script>
+<script>
+requireAuth(['buyer']);
+renderNavbar();
+
+async function loadCart() {
+  const data = await apiGet('/cart');
+  document.getElementById('loading').style.display = 'none';
+
+  if (data.error) {
+    document.getElementById('loading').textContent = '⚠ Failed to load cart.';
+    document.getElementById('loading').style.display = 'block';
+    return;
+  }
+
+  if (!data.items || data.items.length === 0) {
+    document.getElementById('empty-cart').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('cart-layout').style.display = 'grid';
+
+  // Render cart items
+  document.getElementById('cart-items').innerHTML = data.items.map(item => `
+    <div class="cart-item" id="item-${item.id}">
+      <div class="cart-icon">${item.icon || '🔒'}</div>
+      <div class="cart-info">
+        <div class="cart-name">${item.name}</div>
+        <div class="cart-seller">by ${item.seller_name || 'Seller'} · Qty: ${item.quantity}</div>
+      </div>
+      <div class="cart-price">$${parseFloat(item.subtotal).toFixed(2)}</div>
+      <button class="btn btn-danger btn-sm" style="margin-left:1rem" onclick="removeItem(${item.id})">✕</button>
+    </div>
+  `).join('');
+
+  // Update summary
+  const subtotal = parseFloat(data.total);
+  const tax = subtotal * 0.0825;
+  const total = subtotal + tax;
+
+  document.getElementById('subtotal').textContent = '$' + subtotal.toFixed(2);
+  document.getElementById('tax').textContent = '$' + tax.toFixed(2);
+  document.getElementById('total').textContent = '$' + total.toFixed(2);
+}
+
+async function removeItem(cartItemId) {
+  const data = await apiDelete('/cart/' + cartItemId);
+  if (data.error) {
+    alert('⚠ ' + data.error);
+  } else {
+    loadCart();
+  }
+}
+
+async function doCheckout() {
+  if (!confirm('Place order for all items in your cart?')) return;
+  const data = await apiPost('/orders/checkout', {});
+  if (data.error) {
+    alert('⚠ ' + data.error);
+  } else {
+    alert('✅ Order placed successfully!');
+    window.location.href = 'dashboard-buyer.html';
+  }
+}
+
+loadCart();
+</script>
 </body>
 </html>

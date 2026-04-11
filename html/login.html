@@ -33,9 +33,9 @@ main { flex: 1; display: flex; }
 
       <div class="form-hint" style="margin-top:1rem">
         Demo:
-        <a onclick="quickLogin('buyer')">Buyer</a> ·
-        <a onclick="quickLogin('seller')">Seller</a> ·
-        <a onclick="quickLogin('admin')">Admin</a>
+        <a onclick="quickLogin('buyer')" style="cursor:pointer">Buyer</a> ·
+        <a onclick="quickLogin('seller')" style="cursor:pointer">Seller</a> ·
+        <a onclick="quickLogin('admin')" style="cursor:pointer">Admin</a>
       </div>
       <div class="form-hint">No account? <a href="register.html">Register here</a></div>
     </div>
@@ -47,7 +47,6 @@ main { flex: 1; display: flex; }
 <script>
 renderNavbar();
 
-// If already logged in, redirect to dashboard
 if (isLoggedIn()) redirectByRole(getRole());
 
 async function doLogin() {
@@ -61,25 +60,37 @@ async function doLogin() {
     errEl.style.display = 'flex'; return;
   }
 
-  // TODO: replace with real API call
-  // const data = await apiPost('/auth/login.php', { email, password });
-  // if (data.error) { errEl.textContent = data.error; errEl.style.display='flex'; return; }
-  // if (data.require_mfa) { localStorage.setItem('cm_pending_role', data.role); window.location.href='mfa.html'; return; }
-  // setSession(data.token, data.role, data.name);
-  // redirectByRole(data.role);
+  const data = await apiPost('/auth/login', { email, password });
 
-  errEl.textContent = '⚠ Invalid credentials. Use the Demo links below.';
-  errEl.style.display = 'flex';
+  // MFA required — store credentials and redirect to MFA page
+  if (data.mfa_required) {
+    localStorage.setItem('cm_pending_email', email);
+    localStorage.setItem('cm_pending_password', password);
+    window.location.href = 'mfa.html';
+    return;
+  }
+
+  if (data.error) {
+    errEl.textContent = '⚠ ' + data.error;
+    errEl.style.display = 'flex';
+    return;
+  }
+
+  if (data.token) {
+    setSession(data.token, data.role, data.name || email);
+    redirectByRole(data.role);
+  }
 }
 
 function quickLogin(role) {
-  if (role === 'seller' || role === 'admin') {
-    localStorage.setItem('cm_pending_role', role);
-    window.location.href = 'mfa.html';
-  } else {
-    setSession('demo-token-buyer', 'buyer', 'Alex Buyer');
-    redirectByRole('buyer');
-  }
+  const creds = {
+    buyer:  { email: 'test@example.com',   password: 'Test1234!' },
+    seller: { email: 'seller@example.com', password: 'Test1234!' },
+    admin:  { email: 'admin@example.com',  password: 'Test1234!' }
+  };
+  document.getElementById('email').value    = creds[role].email;
+  document.getElementById('password').value = creds[role].password;
+  doLogin();
 }
 </script>
 </body>

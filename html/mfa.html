@@ -20,7 +20,7 @@ main { flex: 1; display: flex; }
     <div class="auth-box fade-in" style="text-align:center">
       <div style="font-size:2.5rem; margin-bottom:1rem">🔐</div>
       <div class="auth-title">Two-Factor Auth</div>
-      <div class="auth-sub">Enter the 6-digit code from your authenticator app</div>
+      <div class="auth-sub" id="mfa-sub">Enter the 6-digit code from your authenticator app</div>
 
       <div id="error-msg" style="display:none" class="alert alert-warn"></div>
 
@@ -34,9 +34,6 @@ main { flex: 1; display: flex; }
       </div>
 
       <button class="btn btn-primary form-btn" onclick="verifyMFA()">Verify</button>
-      <div class="form-hint" style="margin-top:1rem">
-        Demo code: <strong style="color:var(--accent)">123456</strong>
-      </div>
       <div class="form-hint"><a href="login.html">← Back to login</a></div>
     </div>
   </div>
@@ -46,6 +43,15 @@ main { flex: 1; display: flex; }
 <script src="../js/ai-chat.js"></script>
 <script>
 renderNavbar();
+
+// Check if we have pending login credentials
+const pendingEmail    = localStorage.getItem('cm_pending_email');
+const pendingPassword = localStorage.getItem('cm_pending_password');
+
+// If no pending credentials, redirect to login
+if (!pendingEmail || !pendingPassword) {
+  window.location.href = 'login.html';
+}
 
 // Auto-advance digits
 document.querySelectorAll('.mfa-digit').forEach((input, i, all) => {
@@ -65,27 +71,31 @@ async function verifyMFA() {
   errEl.style.display = 'none';
 
   if (code.length < 6) {
-    errEl.textContent = '⚠ Enter all 6 digits.'; errEl.style.display = 'flex'; return;
+    errEl.textContent = '⚠ Enter all 6 digits.';
+    errEl.style.display = 'flex'; return;
   }
 
-  // TODO: replace with real API call
-  // const role = localStorage.getItem('cm_pending_role');
-  // const data = await apiPost('/auth/mfa-verify.php', { code, role });
-  // if (data.error) { errEl.textContent = data.error; errEl.style.display='flex'; return; }
-  // setSession(data.token, data.role, data.name);
-  // localStorage.removeItem('cm_pending_role');
-  // redirectByRole(data.role);
+  const data = await apiPost('/auth/login', {
+    email: pendingEmail,
+    password: pendingPassword,
+    mfa_token: code
+  });
 
-  // Demo logic
-  if (code === '123456') {
-    const role = localStorage.getItem('cm_pending_role') || 'buyer';
-    const names = { seller: 'SecureKeys Co.', admin: 'Admin User', buyer: 'Alex Buyer' };
-    setSession('demo-token-' + role, role, names[role]);
-    localStorage.removeItem('cm_pending_role');
-    redirectByRole(role);
-  } else {
-    errEl.textContent = '⚠ Invalid code. Try 123456 for demo.';
+  if (data.error) {
+    errEl.textContent = '⚠ ' + data.error;
     errEl.style.display = 'flex';
+    // Clear digits
+    document.querySelectorAll('.mfa-digit').forEach(d => d.value = '');
+    document.querySelector('.mfa-digit').focus();
+    return;
+  }
+
+  if (data.token) {
+    // Clear pending credentials
+    localStorage.removeItem('cm_pending_email');
+    localStorage.removeItem('cm_pending_password');
+    setSession(data.token, data.role, data.name || pendingEmail);
+    redirectByRole(data.role);
   }
 }
 </script>

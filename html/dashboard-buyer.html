@@ -29,18 +29,16 @@
     <div id="tab-overview">
       <div class="section-title">Dashboard Overview</div>
       <div class="stats-row">
-        <div class="stat-card green"><div class="stat-val">7</div><div class="stat-label">Total Orders</div></div>
-        <div class="stat-card blue"><div class="stat-val">2</div><div class="stat-label">Active Bookings</div></div>
-        <div class="stat-card warn"><div class="stat-val">$842</div><div class="stat-label">Total Spent</div></div>
+        <div class="stat-card green"><div class="stat-val" id="stat-orders">—</div><div class="stat-label">Total Orders</div></div>
+        <div class="stat-card blue"><div class="stat-val">0</div><div class="stat-label">Active Bookings</div></div>
+        <div class="stat-card warn"><div class="stat-val" id="stat-spent">—</div><div class="stat-label">Total Spent</div></div>
       </div>
       <div class="alert alert-warn">⚠️ MFA is recommended for your account — enable it in settings.</div>
       <div class="section-title">Recent Orders</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Order ID</th><th>Product</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
-        <tbody>
-          <tr><td><span style="font-family:var(--font-mono)">#ORD-4421</span></td><td>USB Security Key (x2)</td><td>2025-06-12</td><td style="color:var(--accent);font-family:var(--font-mono)">$89.00</td><td><span class="tag tag-green">Delivered</span></td></tr>
-          <tr><td><span style="font-family:var(--font-mono)">#ORD-4385</span></td><td>Mini Firewall Bundle</td><td>2025-06-08</td><td style="color:var(--accent);font-family:var(--font-mono)">$249.00</td><td><span class="tag tag-blue">Shipped</span></td></tr>
-          <tr><td><span style="font-family:var(--font-mono)">#ORD-4301</span></td><td>Encrypted USB Drive</td><td>2025-05-29</td><td style="color:var(--accent);font-family:var(--font-mono)">$64.00</td><td><span class="tag tag-green">Delivered</span></td></tr>
+        <tbody id="recent-orders-body">
+          <tr><td colspan="5" style="text-align:center;color:var(--muted)">Loading...</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -49,12 +47,9 @@
     <div id="tab-orders" style="display:none">
       <div class="section-title">My Orders</div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Order ID</th><th>Product</th><th>Qty</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody>
-          <tr><td><span style="font-family:var(--font-mono)">#ORD-4421</span></td><td>USB Security Key</td><td>2</td><td style="color:var(--accent);font-family:var(--font-mono)">$89.00</td><td><span class="tag tag-green">Delivered</span></td><td><button class="btn btn-outline btn-sm">Review</button></td></tr>
-          <tr><td><span style="font-family:var(--font-mono)">#ORD-4385</span></td><td>Mini Firewall Bundle</td><td>1</td><td style="color:var(--accent);font-family:var(--font-mono)">$249.00</td><td><span class="tag tag-blue">Shipped</span></td><td><button class="btn btn-outline btn-sm">Track</button></td></tr>
-          <tr><td><span style="font-family:var(--font-mono)">#ORD-4301</span></td><td>Encrypted USB Drive</td><td>1</td><td style="color:var(--accent);font-family:var(--font-mono)">$64.00</td><td><span class="tag tag-green">Delivered</span></td><td><button class="btn btn-outline btn-sm">Review</button></td></tr>
-          <tr><td><span style="font-family:var(--font-mono)">#ORD-4189</span></td><td>OTP Token x3</td><td>3</td><td style="color:var(--accent);font-family:var(--font-mono)">$105.00</td><td><span class="tag tag-warn">Processing</span></td><td><button class="btn btn-outline btn-sm">View</button></td></tr>
+        <thead><tr><th>Order ID</th><th>Product</th><th>Qty</th><th>Amount</th><th>Status</th></tr></thead>
+        <tbody id="all-orders-body">
+          <tr><td colspan="5" style="text-align:center;color:var(--muted)">Loading...</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -65,8 +60,7 @@
       <div class="table-wrap"><table>
         <thead><tr><th>Booking ID</th><th>Service</th><th>Provider</th><th>Date</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td><span style="font-family:var(--font-mono)">#BK-221</span></td><td>Security Consulting</td><td>CyberShield LLC</td><td>2025-06-20</td><td><span class="tag tag-blue">Confirmed</span></td></tr>
-          <tr><td><span style="font-family:var(--font-mono)">#BK-198</span></td><td>Vulnerability Assessment</td><td>SecureOps Inc.</td><td>2025-07-05</td><td><span class="tag tag-warn">Pending</span></td></tr>
+          <tr><td colspan="5" style="text-align:center;color:var(--muted)">No bookings yet.</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -86,6 +80,65 @@ function showTab(tab, btn) {
   document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
 }
+
+function statusTag(status) {
+  const map = {
+    delivered: 'tag-green', shipped: 'tag-blue',
+    processing: 'tag-warn', pending: 'tag-warn', cancelled: 'tag-red'
+  };
+  const cls = map[status?.toLowerCase()] || 'tag-blue';
+  return `<span class="tag ${cls}">${status}</span>`;
+}
+
+function formatDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+async function loadOrders() {
+  const data = await apiGet('/orders');
+
+  if (data.error || !Array.isArray(data)) {
+    document.getElementById('recent-orders-body').innerHTML =
+      '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Failed to load orders.</td></tr>';
+    return;
+  }
+
+  // Update stats
+  const totalSpent = data.reduce((sum, o) => sum + parseFloat(o.total), 0);
+  document.getElementById('stat-orders').textContent = data.length;
+  document.getElementById('stat-spent').textContent = '$' + totalSpent.toFixed(2);
+
+  if (data.length === 0) {
+    const empty = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No orders yet.</td></tr>';
+    document.getElementById('recent-orders-body').innerHTML = empty;
+    document.getElementById('all-orders-body').innerHTML = empty;
+    return;
+  }
+
+  // Recent orders (last 3)
+  const recentRows = data.slice(0, 3).map(o => `
+    <tr>
+      <td><span style="font-family:var(--font-mono)">#ORD-${o.id}</span></td>
+      <td>${o.product_name}</td>
+      <td>${formatDate(o.created_at)}</td>
+      <td style="color:var(--accent);font-family:var(--font-mono)">$${parseFloat(o.total).toFixed(2)}</td>
+      <td>${statusTag(o.status)}</td>
+    </tr>`).join('');
+  document.getElementById('recent-orders-body').innerHTML = recentRows;
+
+  // All orders
+  const allRows = data.map(o => `
+    <tr>
+      <td><span style="font-family:var(--font-mono)">#ORD-${o.id}</span></td>
+      <td>${o.product_name}</td>
+      <td>${o.quantity}</td>
+      <td style="color:var(--accent);font-family:var(--font-mono)">$${parseFloat(o.total).toFixed(2)}</td>
+      <td>${statusTag(o.status)}</td>
+    </tr>`).join('');
+  document.getElementById('all-orders-body').innerHTML = allRows;
+}
+
+loadOrders();
 </script>
 </body>
 </html>

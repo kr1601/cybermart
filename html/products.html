@@ -17,6 +17,7 @@
     <button class="filter-chip" onclick="filterCat('auth', this)">Auth Devices</button>
     <button class="filter-chip" onclick="filterCat('storage', this)">Storage</button>
   </div>
+  <div id="loading" style="text-align:center;padding:2rem;color:#aaa">Loading products...</div>
   <div class="grid-3" id="products-grid"></div>
 </div>
 <footer>
@@ -27,18 +28,64 @@
 <script src="../js/ai-chat.js"></script>
 <script>
 renderNavbar('products');
-renderProductCards(MOCK_PRODUCTS, 'products-grid');
+
+let ALL_PRODUCTS = [];
+
+async function loadProducts() {
+  const data = await apiGet('/products');
+  document.getElementById('loading').style.display = 'none';
+
+  if (data.error || !Array.isArray(data)) {
+    document.getElementById('loading').textContent = '⚠ Failed to load products.';
+    document.getElementById('loading').style.display = 'block';
+    // Fall back to mock data if API fails
+    ALL_PRODUCTS = MOCK_PRODUCTS;
+    renderProductCards(ALL_PRODUCTS, 'products-grid');
+    return;
+  }
+
+  // Map API response to the format renderProductCards expects
+  ALL_PRODUCTS = data.map(p => ({
+    id: p.id,
+    name: p.name,
+    price: '$' + parseFloat(p.price).toFixed(2),
+    icon: p.icon || '🔒',
+    cat: p.category,
+    seller: p.seller_name || 'Unknown',
+    tag: '',
+    description: p.description || ''
+  }));
+
+  renderProductCards(ALL_PRODUCTS, 'products-grid');
+}
 
 function filterCat(cat, btn) {
   document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  const list = cat === 'all' ? MOCK_PRODUCTS : MOCK_PRODUCTS.filter(p => p.cat === cat);
+  const list = cat === 'all' ? ALL_PRODUCTS : ALL_PRODUCTS.filter(p => p.cat === cat);
   renderProductCards(list, 'products-grid');
 }
+
 function filterProducts(q) {
-  const list = MOCK_PRODUCTS.filter(p => p.name.toLowerCase().includes(q.toLowerCase()));
+  const list = ALL_PRODUCTS.filter(p => p.name.toLowerCase().includes(q.toLowerCase()));
   renderProductCards(list, 'products-grid');
 }
+
+// Also update addToCart to call real API
+async function addToCart(id, name) {
+  if (!isLoggedIn()) {
+    if (confirm(`Login required to add "${name}" to cart. Go to login?`)) window.location.href = 'login.html';
+    return;
+  }
+  const data = await apiPost('/cart', { product_id: id, quantity: 1 });
+  if (data.error) {
+    alert('⚠ ' + data.error);
+  } else {
+    alert(`✅ "${name}" added to cart!`);
+  }
+}
+
+loadProducts();
 </script>
 </body>
 </html>

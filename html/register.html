@@ -83,19 +83,25 @@ async function doRegister() {
   okEl.style.display  = 'none';
 
   if (!name || !email || !password) {
-    errEl.textContent = '⚠ Please fill in all fields.'; errEl.style.display = 'flex'; return;
+    errEl.textContent = '⚠ Please fill in all fields.';
+    errEl.style.display = 'flex'; return;
   }
   if (password.length < 8) {
-    errEl.textContent = '⚠ Password must be at least 8 characters.'; errEl.style.display = 'flex'; return;
+    errEl.textContent = '⚠ Password must be at least 8 characters.';
+    errEl.style.display = 'flex'; return;
   }
 
-  // TODO: replace with real API call
-  // const data = await apiPost('/auth/register.php', { name, email, password, role: selectedRole });
-  // if (data.error) { errEl.textContent = data.error; errEl.style.display='flex'; return; }
+  const data = await apiPost('/auth/register', { name, email, password, role: selectedRole });
 
-  okEl.textContent = '✅ Account created! Please check your email to verify. Redirecting to login...';
+  if (data.error) {
+    errEl.textContent = '⚠ ' + data.error;
+    errEl.style.display = 'flex';
+    return;
+  }
+
+  okEl.textContent = '✅ Account created! Redirecting to login...';
   okEl.style.display = 'flex';
-  setTimeout(() => window.location.href = 'login.html', 2500);
+  setTimeout(() => window.location.href = 'login.html', 2000);
 }
 </script>
 </body>

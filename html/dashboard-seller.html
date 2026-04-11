@@ -20,8 +20,7 @@ body{display:flex;flex-direction:column;}
     <div class="sidebar-menu">
       <button class="menu-item active" onclick="showTab('overview',this)">📊 Overview</button>
       <button class="menu-item" onclick="showTab('listings',this)">📦 My Listings</button>
-      <button class="menu-item" onclick="showTab('orders',this)">🛒 Orders</button>
-      <button class="menu-item" onclick="showTab('services',this)">🛠️ Services</button>
+      <button class="menu-item" onclick="showTab('add-product',this)">➕ Add Product</button>
       <div class="divider"></div>
       <button class="menu-item" onclick="logout()">🚪 Logout</button>
     </div>
@@ -33,10 +32,8 @@ body{display:flex;flex-direction:column;}
       <div class="section-title">Seller Dashboard</div>
       <div class="alert alert-success">✅ Your account is verified. You can list products and services.</div>
       <div class="stats-row">
-        <div class="stat-card green"><div class="stat-val">18</div><div class="stat-label">Active Listings</div></div>
-        <div class="stat-card blue"><div class="stat-val">43</div><div class="stat-label">Total Orders</div></div>
-        <div class="stat-card warn"><div class="stat-val">$3,240</div><div class="stat-label">Revenue (June)</div></div>
-        <div class="stat-card red"><div class="stat-val">2</div><div class="stat-label">Pending Shipments</div></div>
+        <div class="stat-card green"><div class="stat-val" id="stat-listings">—</div><div class="stat-label">Active Listings</div></div>
+        <div class="stat-card warn"><div class="stat-val" id="stat-pending">—</div><div class="stat-label">Pending Approval</div></div>
       </div>
     </div>
 
@@ -44,37 +41,51 @@ body{display:flex;flex-direction:column;}
     <div id="tab-listings" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
         <div class="section-title" style="margin:0">My Listings</div>
-        <button class="btn btn-primary btn-sm">+ Add Product</button>
+        <button class="btn btn-primary btn-sm" onclick="showTab('add-product', null)">+ Add Product</button>
       </div>
       <div class="table-wrap"><table>
         <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody>
-          <tr><td>USB Security Key Pro</td><td>Auth Devices</td><td style="color:var(--accent);font-family:var(--font-mono)">$44.99</td><td>124</td><td><span class="tag tag-green">Active</span></td><td><button class="btn btn-outline btn-sm">Edit</button> <button class="btn btn-danger btn-sm">Delete</button></td></tr>
-          <tr><td>OTP Token Bundle (x5)</td><td>Auth Devices</td><td style="color:var(--accent);font-family:var(--font-mono)">$89.00</td><td>67</td><td><span class="tag tag-green">Active</span></td><td><button class="btn btn-outline btn-sm">Edit</button> <button class="btn btn-danger btn-sm">Delete</button></td></tr>
-          <tr><td>Smart Card Reader</td><td>Auth Devices</td><td style="color:var(--accent);font-family:var(--font-mono)">$32.00</td><td>0</td><td><span class="tag tag-red">Out of Stock</span></td><td><button class="btn btn-outline btn-sm">Edit</button> <button class="btn btn-danger btn-sm">Delete</button></td></tr>
+        <tbody id="listings-body">
+          <tr><td colspan="6" style="text-align:center;color:var(--muted)">Loading...</td></tr>
         </tbody>
       </table></div>
     </div>
 
-    <!-- ORDERS -->
-    <div id="tab-orders" style="display:none">
-      <div class="section-title">Orders (My Products Only)</div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Order ID</th><th>Buyer</th><th>Product</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody>
-          <tr><td><span style="font-family:var(--font-mono)">#ORD-4421</span></td><td>alex@email.com</td><td>USB Key x2</td><td style="color:var(--accent);font-family:var(--font-mono)">$89.00</td><td><span class="tag tag-green">Delivered</span></td><td><button class="btn btn-outline btn-sm">View</button></td></tr>
-          <tr><td><span style="font-family:var(--font-mono)">#ORD-4512</span></td><td>john@email.com</td><td>OTP Bundle</td><td style="color:var(--accent);font-family:var(--font-mono)">$89.00</td><td><span class="tag tag-warn">Processing</span></td><td><button class="btn btn-blue btn-sm">Ship</button></td></tr>
-        </tbody>
-      </table></div>
-    </div>
-
-    <!-- SERVICES -->
-    <div id="tab-services" style="display:none">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
-        <div class="section-title" style="margin:0">Service Listings</div>
-        <button class="btn btn-primary btn-sm">+ Add Service</button>
+    <!-- ADD PRODUCT -->
+    <div id="tab-add-product" style="display:none">
+      <div class="section-title">Add New Product</div>
+      <div id="add-error" style="display:none" class="alert alert-warn"></div>
+      <div id="add-success" style="display:none" class="alert alert-success"></div>
+      <div class="form-group">
+        <label class="form-label">Product Name</label>
+        <input type="text" class="form-input" id="p-name" placeholder="e.g. USB Security Key"/>
       </div>
-      <div class="grid-3" id="seller-services-grid"></div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <input type="text" class="form-input" id="p-desc" placeholder="Short description"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Price ($)</label>
+        <input type="number" class="form-input" id="p-price" placeholder="e.g. 49.99"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="form-input" id="p-category">
+          <option value="network">Network Testing</option>
+          <option value="auth">Auth Devices</option>
+          <option value="storage">Storage</option>
+          <option value="tools">Tools</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Stock</label>
+        <input type="number" class="form-input" id="p-stock" placeholder="e.g. 100"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Icon (emoji)</label>
+        <input type="text" class="form-input" id="p-icon" placeholder="e.g. 🔑"/>
+      </div>
+      <button class="btn btn-primary form-btn" onclick="addProduct()">Submit for Approval</button>
     </div>
 
   </div>
@@ -85,14 +96,109 @@ body{display:flex;flex-direction:column;}
 requireAuth(['seller']);
 renderNavbar();
 document.getElementById('sidebar-name').textContent = getName() || 'Seller';
-renderServiceCards(MOCK_SERVICES.slice(0,2), 'seller-services-grid');
 
 function showTab(tab, btn) {
   document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
   document.getElementById('tab-' + tab).style.display = 'block';
   document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  if (tab === 'listings') loadListings();
 }
+
+function statusTag(approved) {
+  return approved
+    ? '<span class="tag tag-green">Active</span>'
+    : '<span class="tag tag-warn">Pending</span>';
+}
+
+async function loadListings() {
+  const data = await apiGet('/seller/products');
+
+  if (!Array.isArray(data)) {
+    document.getElementById('listings-body').innerHTML =
+      '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Failed to load listings.</td></tr>';
+    return;
+  }
+
+  // Update stats
+  const active = data.filter(p => p.is_approved).length;
+  const pending = data.filter(p => !p.is_approved).length;
+  document.getElementById('stat-listings').textContent = active;
+  document.getElementById('stat-pending').textContent = pending;
+
+  if (data.length === 0) {
+    document.getElementById('listings-body').innerHTML =
+      '<tr><td colspan="6" style="text-align:center;color:var(--muted)">No products yet. Add your first product!</td></tr>';
+    return;
+  }
+
+  document.getElementById('listings-body').innerHTML = data.map(p => `
+    <tr>
+      <td>${p.icon || '🔒'} ${p.name}</td>
+      <td>${p.category}</td>
+      <td style="color:var(--accent);font-family:var(--font-mono)">$${parseFloat(p.price).toFixed(2)}</td>
+      <td>${p.stock}</td>
+      <td>${statusTag(p.is_approved)}</td>
+      <td>
+        <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Delete</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Delete this product?')) return;
+  const data = await apiDelete('/products/' + id);
+  if (data.error) {
+    alert('⚠ ' + data.error);
+  } else {
+    loadListings();
+  }
+}
+
+async function addProduct() {
+  const name        = document.getElementById('p-name').value.trim();
+  const description = document.getElementById('p-desc').value.trim();
+  const price       = document.getElementById('p-price').value;
+  const category    = document.getElementById('p-category').value;
+  const stock       = document.getElementById('p-stock').value;
+  const icon        = document.getElementById('p-icon').value.trim();
+  const errEl       = document.getElementById('add-error');
+  const okEl        = document.getElementById('add-success');
+
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+
+  if (!name || !price || !category) {
+    errEl.textContent = '⚠ Name, price and category are required.';
+    errEl.style.display = 'flex'; return;
+  }
+
+  const data = await apiPost('/products', { name, description, price: parseFloat(price), category, stock: parseInt(stock) || 0, icon });
+
+  if (data.error) {
+    errEl.textContent = '⚠ ' + data.error;
+    errEl.style.display = 'flex';
+    return;
+  }
+
+  okEl.textContent = '✅ Product submitted and awaiting admin approval!';
+  okEl.style.display = 'flex';
+  document.getElementById('p-name').value = '';
+  document.getElementById('p-desc').value = '';
+  document.getElementById('p-price').value = '';
+  document.getElementById('p-stock').value = '';
+  document.getElementById('p-icon').value = '';
+}
+
+// Load stats on page load
+async function loadStats() {
+  const data = await apiGet('/seller/products');
+  if (!Array.isArray(data)) return;
+  document.getElementById('stat-listings').textContent = data.filter(p => p.is_approved).length;
+  document.getElementById('stat-pending').textContent = data.filter(p => !p.is_approved).length;
+}
+
+loadStats();
 </script>
 </body>
 </html>
