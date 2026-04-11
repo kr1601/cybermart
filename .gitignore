@@ -2,5 +2,5 @@ node_modules/
 .env
 .env.local
 
-# OpenAI key ? never commit (copy from openai-key.sample.php on server)
+# OpenAI key - never commit (copy from openai-key.sample.php on server)
 api/ai/openai-key.php
