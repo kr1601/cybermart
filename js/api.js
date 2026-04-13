@@ -2,7 +2,7 @@
 // api.js — shared fetch wrapper + auth helpers
 // ============================================================
 
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = 'https://cybermart-production.up.railway.app/api';
 
 // ── Storage helpers ──────────────────────────────────────────
 function getToken()   { return localStorage.getItem('cm_token'); }
