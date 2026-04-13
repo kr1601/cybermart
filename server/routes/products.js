@@ -4,22 +4,28 @@ const pool = require('../db');
 const authenticate = require('../middleware/authenticate');
 const authorize = require('../middleware/authorize');
 
-// Get all approved products (with seller name)
+// ✅ Get all products (with optional filters)
 router.get('/', async (req, res) => {
   try {
     const { category, search } = req.query;
+
     let query = `
       SELECT p.*, u.name AS seller_name 
       FROM products p 
       JOIN users u ON p.seller_id = u.id
-      WHERE p.is_approved = 1
+      WHERE 1=1
     `;
+
     const params = [];
+
+    // Optional: filter only approved (keep this for production)
+    query += ' AND p.is_approved = 1';
 
     if (category) {
       query += ' AND p.category = ?';
       params.push(category);
     }
+
     if (search) {
       query += ' AND (p.name LIKE ? OR p.description LIKE ?)';
       params.push(`%${search}%`, `%${search}%`);
@@ -27,14 +33,24 @@ router.get('/', async (req, res) => {
 
     query += ' ORDER BY p.created_at DESC';
 
+    console.log("QUERY:", query);
+    console.log("PARAMS:", params);
+
     const [rows] = await pool.query(query, params);
+
+    if (!rows || rows.length === 0) {
+      return res.json([]); // clean response instead of weird DB error
+    }
+
     res.json(rows);
+
   } catch (err) {
+    console.error("PRODUCTS ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Get single product by ID (with seller name)
+// ✅ Get single product
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -44,24 +60,31 @@ router.get('/:id', async (req, res) => {
        WHERE p.id = ?`,
       [req.params.id]
     );
-    if (rows.length === 0)
+
+    if (!rows || rows.length === 0) {
       return res.status(404).json({ error: 'Product not found' });
+    }
+
     res.json(rows[0]);
+
   } catch (err) {
+    console.error("GET PRODUCT ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Create a product (seller only)
+// ✅ Create product
 router.post('/', authenticate, authorize('seller'), async (req, res) => {
   const { name, description, price, category, stock, icon } = req.body;
+
   try {
     if (!name || !price || !category) {
       return res.status(400).json({ error: 'name, price and category are required' });
     }
 
     const [result] = await pool.query(
-      `INSERT INTO products (name, description, price, category, stock, seller_id, icon, is_approved) 
+      `INSERT INTO products 
+       (name, description, price, category, stock, seller_id, icon, is_approved) 
        VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
       [name, description, price, category, stock || 0, req.user.id, icon || null]
     );
@@ -75,25 +98,32 @@ router.post('/', authenticate, authorize('seller'), async (req, res) => {
     );
 
     res.status(201).json({
-      message: 'Product submitted and awaiting admin approval',
+      message: 'Product submitted (needs admin approval)',
       product: newRows[0]
     });
+
   } catch (err) {
+    console.error("CREATE PRODUCT ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Update a product (seller must own it)
+// ✅ Update product
 router.put('/:id', authenticate, authorize('seller'), async (req, res) => {
   const { name, description, price, category, stock, icon } = req.body;
+
   try {
     const [rows] = await pool.query(
       'SELECT * FROM products WHERE id = ?', [req.params.id]
     );
-    if (rows.length === 0)
+
+    if (!rows.length) {
       return res.status(404).json({ error: 'Product not found' });
-    if (rows[0].seller_id !== req.user.id)
-      return res.status(403).json({ error: 'You can only edit your own products' });
+    }
+
+    if (rows[0].seller_id !== req.user.id) {
+      return res.status(403).json({ error: 'Not your product' });
+    }
 
     await pool.query(
       `UPDATE products 
@@ -110,56 +140,50 @@ router.put('/:id', authenticate, authorize('seller'), async (req, res) => {
       ]
     );
 
-    const [updated] = await pool.query(
-      `SELECT p.*, u.name AS seller_name 
-       FROM products p 
-       JOIN users u ON p.seller_id = u.id
-       WHERE p.id = ?`,
-      [req.params.id]
-    );
+    res.json({ message: 'Updated (needs re-approval)' });
 
-    res.json({
-      message: 'Product updated and resubmitted for approval',
-      product: updated[0]
-    });
   } catch (err) {
+    console.error("UPDATE ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Delete a product (seller owns it, or admin)
+// ✅ Delete product
 router.delete('/:id', authenticate, async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT * FROM products WHERE id = ?', [req.params.id]
     );
-    if (rows.length === 0)
-      return res.status(404).json({ error: 'Product not found' });
 
-    if (req.user.role !== 'admin' && rows[0].seller_id !== req.user.id)
-      return res.status(403).json({ error: 'Not authorized to delete this product' });
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    if (req.user.role !== 'admin' && rows[0].seller_id !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
 
     await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
-    res.json({ message: 'Product deleted' });
+
+    res.json({ message: 'Deleted successfully' });
+
   } catch (err) {
+    console.error("DELETE ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Approve a product (admin only)
+// ✅ Approve product
 router.patch('/:id/approve', authenticate, authorize('admin'), async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT * FROM products WHERE id = ?', [req.params.id]
-    );
-    if (rows.length === 0)
-      return res.status(404).json({ error: 'Product not found' });
-
     await pool.query(
       'UPDATE products SET is_approved = 1 WHERE id = ?', [req.params.id]
     );
-    res.json({ message: 'Product approved and now visible to buyers' });
+
+    res.json({ message: 'Product approved' });
+
   } catch (err) {
+    console.error("APPROVE ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
