@@ -14,6 +14,7 @@ const cartRoutes = require('./routes/cart');
 const orderRoutes = require('./routes/orders');
 const mfaRoutes = require('./routes/mfa');
 
+
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/seller', sellerRoutes);
@@ -21,6 +22,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/mfa', mfaRoutes);
+
 
 app.get('/', (req, res) => {
   res.json({ message: 'Marketplace API is running!' });
