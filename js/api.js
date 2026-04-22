@@ -180,4 +180,4 @@ function renderNavbar(activePage = '') {
 function logout() {
   clearSession();
   window.location.href = 'index.html';
-}
+} 
