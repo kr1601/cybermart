@@ -9,7 +9,7 @@ router.get('/', authenticate, authorize('buyer'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT ci.id, ci.quantity, ci.created_at,
-              p.id AS product_id, p.name, p.price, p.category, p.icon,
+              p.id AS product_id, p.name, p.price, p.category,
               (ci.quantity * p.price) AS subtotal
        FROM cart_items ci
        JOIN products p ON ci.product_id = p.id
@@ -33,7 +33,6 @@ router.post('/', authenticate, authorize('buyer'), async (req, res) => {
       return res.status(400).json({ error: 'product_id is required' });
     }
 
-    // Check product exists and is approved
     const [products] = await pool.query(
       'SELECT * FROM products WHERE id = ? AND is_approved = 1',
       [product_id]
@@ -42,12 +41,10 @@ router.post('/', authenticate, authorize('buyer'), async (req, res) => {
       return res.status(404).json({ error: 'Product not found or not available' });
     }
 
-    // Check stock
     if (products[0].stock < quantity) {
       return res.status(400).json({ error: 'Not enough stock available' });
     }
 
-    // If already in cart, update quantity
     const [existing] = await pool.query(
       'SELECT * FROM cart_items WHERE user_id = ? AND product_id = ?',
       [req.user.id, product_id]
@@ -65,7 +62,6 @@ router.post('/', authenticate, authorize('buyer'), async (req, res) => {
       return res.json({ message: 'Cart updated', quantity: newQty });
     }
 
-    // Otherwise insert new cart item
     await pool.query(
       'INSERT INTO cart_items (user_id, product_id, quantity) VALUES (?, ?, ?)',
       [req.user.id, product_id, quantity]
@@ -93,7 +89,6 @@ router.put('/:id', authenticate, authorize('buyer'), async (req, res) => {
       return res.status(404).json({ error: 'Cart item not found' });
     }
 
-    // Check stock
     const [products] = await pool.query(
       'SELECT stock FROM products WHERE id = ?',
       [rows[0].product_id]
