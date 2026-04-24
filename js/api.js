@@ -48,14 +48,11 @@ function requireAuth(allowedRoles) {
 
 // ── API helpers ──────────────────────────────────────────────
 
-// 🔥 FIX: Only attach token if needed
 function getHeaders(isProtected = false) {
   const headers = { 'Content-Type': 'application/json' };
-
   if (isProtected && getToken()) {
     headers['Authorization'] = 'Bearer ' + getToken();
   }
-
   return headers;
 }
 
@@ -65,13 +62,9 @@ async function apiGet(endpoint, isProtected = false) {
     const res = await fetch(API_BASE + endpoint, {
       headers: getHeaders(isProtected)
     });
-
     const data = await res.json();
-
     if (!res.ok) throw data;
-
     return data;
-
   } catch (e) {
     console.error("GET ERROR:", e);
     return { error: e.error || 'Request failed' };
@@ -86,13 +79,9 @@ async function apiPost(endpoint, data, isProtected = false) {
       headers: getHeaders(isProtected),
       body: JSON.stringify(data)
     });
-
     const result = await res.json();
-
     if (!res.ok) throw result;
-
     return result;
-
   } catch (e) {
     console.error("POST ERROR:", e);
     return { error: e.error || 'Request failed' };
@@ -107,13 +96,9 @@ async function apiPut(endpoint, data, isProtected = true) {
       headers: getHeaders(true),
       body: JSON.stringify(data)
     });
-
     const result = await res.json();
-
     if (!res.ok) throw result;
-
     return result;
-
   } catch (e) {
     console.error("PUT ERROR:", e);
     return { error: e.error || 'Request failed' };
@@ -127,13 +112,9 @@ async function apiDelete(endpoint) {
       method: 'DELETE',
       headers: getHeaders(true)
     });
-
     const result = await res.json();
-
     if (!res.ok) throw result;
-
     return result;
-
   } catch (e) {
     console.error("DELETE ERROR:", e);
     return { error: e.error || 'Request failed' };
@@ -160,7 +141,7 @@ async function register(data) {
 // ── Navbar ──────────────────────────────────────────────────
 function renderNavbar(activePage = '') {
   const loggedIn = isLoggedIn();
-  const role = getRole();
+  const role = getRole() || '';  // ✅ FIX: prevent null crash
 
   const navRight = loggedIn
     ? `<span>${role.toUpperCase()}</span>
@@ -180,4 +161,4 @@ function renderNavbar(activePage = '') {
 function logout() {
   clearSession();
   window.location.href = 'index.html';
-} 
+}
