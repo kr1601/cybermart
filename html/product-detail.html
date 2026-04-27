@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Product — CyberMart</title>
+<link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+<div class="container" id="detail-root">
+  <div style="text-align:center;padding:3rem;color:var(--muted)">Loading product...</div>
+</div>
+<footer>
+  <span>© 2025 CyberMart — Group 10</span>
+  <span class="tag tag-green">🔒 SSL Secured</span>
+</footer>
+<script src="../js/api.js"></script>
+<script src="../js/ai-chat.js"></script>
+<script>
+renderNavbar('products');
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+async function renderDetail() {
+  const root    = document.getElementById('detail-root');
+  const idParam = new URLSearchParams(window.location.search).get('id');
+
+  if (!idParam) {
+    showNotFound(root);
+    return;
+  }
+
+  // Try real API first
+  const p = await apiGet('/products/' + idParam);
+
+  if (p.error || !p.id) {
+    // Fall back to mock data
+    const mock = getProductById(idParam);
+    if (!mock) { showNotFound(root); return; }
+    renderProduct(root, {
+      id: mock.id,
+      name: mock.name,
+      price: mock.price,
+      icon: mock.icon || '🔒',
+      category: mock.cat,
+      seller_name: mock.seller,
+      tag: mock.tag,
+      description: mock.description,
+      features: mock.features || []
+    });
+    return;
+  }
+
+  renderProduct(root, {
+    id: p.id,
+    name: p.name,
+    price: '$' + parseFloat(p.price).toFixed(2),
+    icon: p.icon || '🔒',
+    category: p.category,
+    seller_name: p.seller_name || 'Unknown',
+    tag: '',
+    description: p.description || '',
+    features: []
+  });
+}
+
+function renderProduct(root, p) {
+  document.title = p.name + ' — CyberMart';
+
+  const tagHtml = p.tag
+    ? '<span class="tag tag-green">' + escapeHtml(p.tag) + '</span>'
+    : '';
+
+  const featuresHtml = (p.features || []).map(f =>
+    '<li>' + escapeHtml(f) + '</li>'
+  ).join('');
+
+  root.innerHTML =
+    '<nav class="product-detail-breadcrumb" aria-label="Breadcrumb">' +
+    '<a href="products.html">Products</a> <span aria-hidden="true"> / </span> ' + escapeHtml(p.name) +
+    '</nav>' +
+    '<div class="product-detail-grid">' +
+    '  <div class="product-detail-visual" aria-hidden="true">' + p.icon + '</div>' +
+    '  <div class="product-detail-main">' +
+    '    <h1>' + escapeHtml(p.name) + '</h1>' +
+    '    <div class="product-detail-meta-row">' +
+    tagHtml +
+    '      <span class="card-meta">Sold by <strong style="color:var(--text)">' + escapeHtml(p.seller_name) + '</strong></span>' +
+    '    </div>' +
+    '    <div class="product-detail-price">' + escapeHtml(p.price) + '</div>' +
+    '    <p class="product-detail-desc">' + escapeHtml(p.description) + '</p>' +
+    (featuresHtml ? '<div class="product-detail-features-title">Key features</div><ul class="product-detail-features">' + featuresHtml + '</ul>' : '') +
+    '    <div class="product-detail-actions">' +
+    '      <button type="button" class="btn btn-primary" onclick="addToCart(' + p.id + ',' + JSON.stringify(p.name) + ')">Add to Cart</button>' +
+    '      <a href="products.html" class="btn btn-outline">Continue shopping</a>' +
+    '    </div>' +
+    '  </div>' +
+    '</div>';
+}
+
+function showNotFound(root) {
+  document.title = 'Product not found — CyberMart';
+  root.innerHTML =
+    '<div class="product-not-found">' +
+    '<div class="section-title" style="justify-content:center">Product not found</div>' +
+    '<p>We couldn\'t find a product for this link. It may have been removed or the ID is invalid.</p>' +
+    '<a href="products.html" class="btn btn-primary">Back to Products</a>' +
+    '</div>';
+}
+
+renderDetail();
+</script>
+</body>
+</html>

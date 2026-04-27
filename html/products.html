@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Products — CyberMart</title>
+<link rel="stylesheet" href="../css/style.css"/>
+</head>
+
+<body>
+
+<div id="navbar-placeholder"></div>
+
+<div class="container">
+  <div class="section-title">🛒 All Products</div>
+
+  <div class="filter-bar">
+    <input type="text" class="search-input" placeholder="🔍 Search products..." oninput="filterProducts(this.value)"/>
+
+    <button class="filter-chip active" onclick="filterCat('all', this)">All</button>
+    <button class="filter-chip" onclick="filterCat('network', this)">Network Testing</button>
+    <button class="filter-chip" onclick="filterCat('auth', this)">Auth Devices</button>
+    <button class="filter-chip" onclick="filterCat('storage', this)">Storage</button>
+  </div>
+
+  <div id="loading" style="text-align:center;padding:2rem;color:#aaa">
+    Loading products...
+  </div>
+
+  <div class="grid-3" id="products-grid"></div>
+</div>
+
+<footer>
+  <span>© 2025 CyberMart — Group 10</span>
+  <span class="tag tag-green">🔒 SSL Secured</span>
+</footer>
+
+<!-- API -->
+<script src="../js/api.js"></script>
+
+<script>
+renderNavbar('products');
+
+let ALL_PRODUCTS = [];
+
+// ================= LOAD PRODUCTS =================
+async function loadProducts() {
+  const data = await getProducts();
+  document.getElementById('loading').style.display = 'none';
+
+  if (data.error || !Array.isArray(data)) {
+    document.getElementById('loading').textContent = '⚠ Failed to load products.';
+    document.getElementById('loading').style.display = 'block';
+    return;
+  }
+
+  ALL_PRODUCTS = data.map(p => ({
+    id: p.id,
+    name: p.name,
+    price: '$' + parseFloat(p.price).toFixed(2),
+    icon: p.icon || '🔒',
+    cat: p.category,
+    description: p.description || ''
+  }));
+
+  renderProductCards(ALL_PRODUCTS, 'products-grid');
+}
+
+// ================= RENDER CARDS (FIX) =================
+function renderProductCards(products, containerId) {
+  const container = document.getElementById(containerId);
+
+  if (!products || products.length === 0) {
+    container.innerHTML = "<p>No products found</p>";
+    return;
+  }
+
+  container.innerHTML = products.map(p => `
+    <div class="card">
+      <h3>${p.icon} ${p.name}</h3>
+      <p>${p.description}</p>
+      <p><strong>${p.price}</strong></p>
+      <button onclick="addToCart(${p.id}, '${p.name}')">
+        Add to Cart
+      </button>
+    </div>
+  `).join('');
+}
+
+// ================= FILTER =================
+function filterCat(cat, btn) {
+  document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const list = cat === 'all'
+    ? ALL_PRODUCTS
+    : ALL_PRODUCTS.filter(p => p.cat === cat);
+
+  renderProductCards(list, 'products-grid');
+}
+
+function filterProducts(q) {
+  const list = ALL_PRODUCTS.filter(p =>
+    p.name.toLowerCase().includes(q.toLowerCase())
+  );
+
+  renderProductCards(list, 'products-grid');
+}
+
+// ================= ADD TO CART =================
+async function addToCart(id, name) {
+  if (!isLoggedIn()) {
+    if (confirm(`Login required to add "${name}" to cart. Go to login?`)) {
+      window.location.href = 'login.html';
+    }
+    return;
+  }
+
+  const data = await apiPost('/cart', { product_id: id, quantity: 1 }, true);
+
+  if (data.error) {
+    alert('⚠ ' + data.error);
+  } else {
+    alert(`✅ "${name}" added to cart!`);
+  }
+}
+
+// ================= START =================
+loadProducts();
+
+</script>
+
+</body>
+</html>

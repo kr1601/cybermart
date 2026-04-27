@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Two-Factor Auth — CyberMart</title>
+<link rel="stylesheet" href="../css/style.css"/>
+<style>
+body { display: flex; flex-direction: column; }
+main { flex: 1; display: flex; }
+.mfa-inputs { display: flex; gap: 0.5rem; justify-content: center; margin: 1.5rem 0; }
+.mfa-digit { width: 48px; height: 56px; text-align: center; font-size: 1.5rem; font-family: var(--font-mono); font-weight: 700; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; outline: none; transition: border-color 0.2s; }
+.mfa-digit:focus { border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+<main>
+  <div class="auth-wrap">
+    <div class="auth-box fade-in" style="text-align:center">
+      <div style="font-size:2.5rem; margin-bottom:1rem">🔐</div>
+      <div class="auth-title">Two-Factor Auth</div>
+      <div class="auth-sub" id="mfa-sub">Enter the 6-digit code from your authenticator app</div>
+
+      <div id="error-msg" style="display:none" class="alert alert-warn"></div>
+
+      <div class="mfa-inputs" id="mfa-inputs">
+        <input class="mfa-digit" maxlength="1" type="text"/>
+        <input class="mfa-digit" maxlength="1" type="text"/>
+        <input class="mfa-digit" maxlength="1" type="text"/>
+        <input class="mfa-digit" maxlength="1" type="text"/>
+        <input class="mfa-digit" maxlength="1" type="text"/>
+        <input class="mfa-digit" maxlength="1" type="text"/>
+      </div>
+
+      <button class="btn btn-primary form-btn" onclick="verifyMFA()">Verify</button>
+      <div class="form-hint"><a href="login.html">← Back to login</a></div>
+    </div>
+  </div>
+</main>
+
+<script src="../js/api.js"></script>
+<script src="../js/ai-chat.js"></script>
+<script>
+renderNavbar();
+
+// Check if we have pending login credentials
+const pendingEmail    = localStorage.getItem('cm_pending_email');
+const pendingPassword = localStorage.getItem('cm_pending_password');
+
+// If no pending credentials, redirect to login
+if (!pendingEmail || !pendingPassword) {
+  window.location.href = 'login.html';
+}
+
+// Auto-advance digits
+document.querySelectorAll('.mfa-digit').forEach((input, i, all) => {
+  input.addEventListener('input', () => {
+    input.value = input.value.replace(/\D/g, '');
+    if (input.value && i < all.length - 1) all[i + 1].focus();
+    if (i === all.length - 1 && input.value) verifyMFA();
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && !input.value && i > 0) all[i - 1].focus();
+  });
+});
+
+async function verifyMFA() {
+  const code  = [...document.querySelectorAll('.mfa-digit')].map(d => d.value).join('');
+  const errEl = document.getElementById('error-msg');
+  errEl.style.display = 'none';
+
+  if (code.length < 6) {
+    errEl.textContent = '⚠ Enter all 6 digits.';
+    errEl.style.display = 'flex'; return;
+  }
+
+  const data = await apiPost('/auth/login', {
+    email: pendingEmail,
+    password: pendingPassword,
+    mfa_token: code
+  });
+
+  if (data.error) {
+    errEl.textContent = '⚠ ' + data.error;
+    errEl.style.display = 'flex';
+    // Clear digits
+    document.querySelectorAll('.mfa-digit').forEach(d => d.value = '');
+    document.querySelector('.mfa-digit').focus();
+    return;
+  }
+
+  if (data.token) {
+    // Clear pending credentials
+    localStorage.removeItem('cm_pending_email');
+    localStorage.removeItem('cm_pending_password');
+    setSession(data.token, data.role, data.name || pendingEmail);
+    redirectByRole(data.role);
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Admin Dashboard — CyberMart</title>
+<link rel="stylesheet" href="../css/style.css"/>
+<style>
+body{display:flex;flex-direction:column;}
+.sidebar-avatar-admin{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--danger),#ff9500);display:flex;align-items:center;justify-content:center;font-size:1.15rem;font-weight:800;color:#000;margin-bottom:0.5rem;}
+.log-entry{display:flex;gap:1rem;align-items:flex-start;padding:0.7rem;border-radius:8px;font-size:0.82rem;font-family:var(--font-mono);border-left:2px solid;margin-bottom:0.5rem;background:var(--surface);}
+.log-entry.info{border-color:var(--accent2);}
+.log-entry.warn{border-color:var(--warn);}
+.log-entry.error{border-color:var(--danger);}
+.log-time{color:var(--muted);white-space:nowrap;}
+</style>
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+<div class="dash-layout">
+  <div class="sidebar">
+    <div class="sidebar-avatar-admin">A</div>
+    <div class="sidebar-name">Admin User</div>
+    <div class="sidebar-role"><span class="badge badge-admin">ADMIN</span></div>
+    <div class="sidebar-menu">
+      <button class="menu-item active" onclick="showTab('overview',this)">📊 Overview</button>
+      <button class="menu-item" onclick="showTab('products',this)">📦 Approve Products</button>
+      <button class="menu-item" onclick="showTab('users',this)">👥 Users</button>
+      <button class="menu-item" onclick="showTab('orders',this)">🛒 All Orders</button>
+      <button class="menu-item" onclick="showTab('logs',this)">📋 Audit Logs</button>
+      <div class="divider"></div>
+      <button class="menu-item" onclick="logout()">🚪 Logout</button>
+    </div>
+  </div>
+  <div class="dash-content fade-in">
+
+    <!-- OVERVIEW -->
+    <div id="tab-overview">
+      <div class="section-title">Admin Overview</div>
+      <div class="stats-row">
+        <div class="stat-card green"><div class="stat-val" id="stat-pending-products">—</div><div class="stat-label">Pending Products</div></div>
+        <div class="stat-card blue"><div class="stat-val" id="stat-users">—</div><div class="stat-label">Total Users</div></div>
+        <div class="stat-card warn"><div class="stat-val" id="stat-locked">—</div><div class="stat-label">Locked Accounts</div></div>
+        <div class="stat-card red"><div class="stat-val" id="stat-orders">—</div><div class="stat-label">Total Orders</div></div>
+      </div>
+    </div>
+
+    <!-- APPROVE PRODUCTS -->
+    <div id="tab-products" style="display:none">
+      <div class="section-title">Pending Product Approvals</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Product</th><th>Seller</th><th>Price</th><th>Category</th><th>Actions</th></tr></thead>
+        <tbody id="pending-products-body">
+          <tr><td colspan="5" style="text-align:center;color:var(--muted)">Loading...</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- USERS -->
+    <div id="tab-users" style="display:none">
+      <div class="section-title">User Management</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="users-body">
+          <tr><td colspan="5" style="text-align:center;color:var(--muted)">Loading...</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- ALL ORDERS -->
+    <div id="tab-orders" style="display:none">
+      <div class="section-title">All Orders</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Order ID</th><th>Buyer</th><th>Product</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="all-orders-body">
+          <tr><td colspan="6" style="text-align:center;color:var(--muted)">Loading...</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- AUDIT LOGS -->
+    <div id="tab-logs" style="display:none">
+      <div class="section-title">Audit Logs <span class="tag tag-green" style="font-size:0.7rem;margin-left:0.5rem">● LIVE</span></div>
+      <div id="logs-container">
+        <div style="text-align:center;color:var(--muted)">Loading...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<script src="../js/api.js"></script>
+<script src="../js/ai-chat.js"></script>
+<script>
+requireAuth(['admin']);
+renderNavbar();
+
+function showTab(tab, btn) {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
+  document.getElementById('tab-' + tab).style.display = 'block';
+  document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (tab === 'products') loadPendingProducts();
+  if (tab === 'users') loadUsers();
+  if (tab === 'orders') loadAllOrders();
+  if (tab === 'logs') loadLogs();
+}
+
+function statusTag(status) {
+  const map = { delivered: 'tag-green', shipped: 'tag-blue', processing: 'tag-warn', pending: 'tag-warn', cancelled: 'tag-red' };
+  return `<span class="tag ${map[status?.toLowerCase()] || 'tag-blue'}">${status}</span>`;
+}
+
+function formatDate(d) {
+  return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// Load overview stats
+async function loadStats() {
+  const [users, orders, products] = await Promise.all([
+    apiGet('/admin/users'),
+    apiGet('/orders/all'),
+    apiGet('/products?all=true')
+  ]);
+
+  if (Array.isArray(users)) {
+    document.getElementById('stat-users').textContent = users.length;
+    document.getElementById('stat-locked').textContent = users.filter(u => u.is_locked).length;
+  }
+  if (Array.isArray(orders)) {
+    document.getElementById('stat-orders').textContent = orders.length;
+  }
+  if (Array.isArray(products)) {
+    document.getElementById('stat-pending-products').textContent = products.filter(p => !p.is_approved).length;
+  }
+}
+
+// Load pending products
+async function loadPendingProducts() {
+  const data = await apiGet('/admin/products/pending');
+  if (!Array.isArray(data) || data.length === 0) {
+    document.getElementById('pending-products-body').innerHTML =
+      '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No pending products.</td></tr>';
+    return;
+  }
+  document.getElementById('pending-products-body').innerHTML = data.map(p => `
+    <tr id="prod-row-${p.id}">
+      <td>${p.icon || '🔒'} ${p.name}</td>
+      <td>${p.seller_name}</td>
+      <td style="color:var(--accent);font-family:var(--font-mono)">$${parseFloat(p.price).toFixed(2)}</td>
+      <td>${p.category}</td>
+      <td>
+        <button class="btn btn-primary btn-sm" onclick="approveProduct(${p.id})">✓ Approve</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">✗ Reject</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function approveProduct(id) {
+  const data = await apiPatch('/products/' + id + '/approve');
+  if (data.error) { alert('⚠ ' + data.error); return; }
+  document.getElementById('prod-row-' + id).querySelector('td:last-child').innerHTML =
+    '<span class="tag tag-green">Approved</span>';
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Reject and delete this product?')) return;
+  const data = await apiDelete('/products/' + id);
+  if (data.error) { alert('⚠ ' + data.error); return; }
+  document.getElementById('prod-row-' + id).remove();
+}
+
+// Load users
+async function loadUsers() {
+  const data = await apiGet('/admin/users');
+  if (!Array.isArray(data)) {
+    document.getElementById('users-body').innerHTML =
+      '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Failed to load users.</td></tr>';
+    return;
+  }
+  document.getElementById('users-body').innerHTML = data.map(u => `
+    <tr id="user-row-${u.id}">
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+      <td><span class="tag tag-blue">${u.role}</span></td>
+      <td>${u.is_locked ? '<span class="tag tag-red">Locked</span>' : '<span class="tag tag-green">Active</span>'}</td>
+      <td>
+        ${u.is_locked
+          ? `<button class="btn btn-primary btn-sm" onclick="toggleLock(${u.id}, false)">🔓 Unlock</button>`
+          : `<button class="btn btn-danger btn-sm" onclick="toggleLock(${u.id}, true)">🔒 Lock</button>`
+        }
+      </td>
+    </tr>`).join('');
+}
+
+async function toggleLock(id, lock) {
+  const endpoint = lock ? `/admin/lock/${id}` : `/admin/unlock/${id}`;
+  const data = await apiPost(endpoint, {});
+  if (data.error) { alert('⚠ ' + data.error); return; }
+  loadUsers();
+}
+
+// Load all orders
+async function loadAllOrders() {
+  const data = await apiGet('/orders/all');
+  if (!Array.isArray(data)) {
+    document.getElementById('all-orders-body').innerHTML =
+      '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Failed to load orders.</td></tr>';
+    return;
+  }
+  if (data.length === 0) {
+    document.getElementById('all-orders-body').innerHTML =
+      '<tr><td colspan="6" style="text-align:center;color:var(--muted)">No orders yet.</td></tr>';
+    return;
+  }
+  document.getElementById('all-orders-body').innerHTML = data.map(o => `
+    <tr>
+      <td><span style="font-family:var(--font-mono)">#ORD-${o.id}</span></td>
+      <td>${o.buyer_name}</td>
+      <td>${o.product_name}</td>
+      <td style="color:var(--accent);font-family:var(--font-mono)">$${parseFloat(o.total).toFixed(2)}</td>
+      <td>${statusTag(o.status)}</td>
+      <td>
+        <select class="form-input" style="padding:0.2rem;font-size:0.8rem" onchange="updateOrderStatus(${o.id}, this.value)">
+          <option ${o.status==='pending'?'selected':''}>pending</option>
+          <option ${o.status==='processing'?'selected':''}>processing</option>
+          <option ${o.status==='shipped'?'selected':''}>shipped</option>
+          <option ${o.status==='delivered'?'selected':''}>delivered</option>
+          <option ${o.status==='cancelled'?'selected':''}>cancelled</option>
+        </select>
+      </td>
+    </tr>`).join('');
+}
+
+async function updateOrderStatus(id, status) {
+  const data = await apiPatch('/orders/' + id + '/status', { status });
+  if (data.error) alert('⚠ ' + data.error);
+}
+
+// Load audit logs
+async function loadLogs() {
+  const data = await apiGet('/admin/logs');
+  if (!Array.isArray(data)) {
+    document.getElementById('logs-container').innerHTML =
+      '<div style="color:var(--muted)">Failed to load logs.</div>';
+    return;
+  }
+  const typeClass = { LOGIN_SUCCESS: 'info', LOGIN_FAIL: 'warn', LOGIN_FAIL_MFA: 'warn', ACCOUNT_LOCKED: 'error', ACCOUNT_UNLOCKED: 'info' };
+  document.getElementById('logs-container').innerHTML = data.map(log => `
+    <div class="log-entry ${typeClass[log.event_type] || 'info'}">
+      <span class="log-time">${new Date(log.created_at).toLocaleTimeString()}</span>
+      <span>${log.event_type} · ${log.details} · IP: ${log.ip_address}</span>
+    </div>`).join('');
+}
+
+// Add apiPatch to support PATCH requests
+async function apiPatch(endpoint, data = {}) {
+  try {
+    const res = await fetch('http://localhost:3000/api' + endpoint, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + getToken()
+      },
+      body: JSON.stringify(data)
+    });
+    return await res.json();
+  } catch (e) {
+    return { error: 'Network error. Please try again.' };
+  }
+}
+
+loadStats();
+</script>
+</body>
+</html>

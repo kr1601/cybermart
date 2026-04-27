@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Login — CyberMart</title>
+<link rel="stylesheet" href="../css/style.css"/>
+<style>
+body { display: flex; flex-direction: column; }
+main { flex: 1; display: flex; }
+</style>
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+<main>
+  <div class="auth-wrap">
+    <div class="auth-box fade-in">
+      <div class="auth-title">Welcome back</div>
+      <div class="auth-sub">Sign in to your CyberMart account</div>
+
+      <div id="error-msg" style="display:none" class="alert alert-warn"></div>
+
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-input" id="email" placeholder="you@example.com"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-input" id="password" placeholder="••••••••"/>
+      </div>
+
+      <button class="btn btn-primary form-btn" onclick="doLogin()">Sign In</button>
+
+      <div class="form-hint" style="margin-top:1rem">
+        Demo:
+        <a onclick="quickLogin('buyer')" style="cursor:pointer">Buyer</a> ·
+        <a onclick="quickLogin('seller')" style="cursor:pointer">Seller</a> ·
+        <a onclick="quickLogin('admin')" style="cursor:pointer">Admin</a>
+      </div>
+      <div class="form-hint">No account? <a href="register.html">Register here</a></div>
+    </div>
+  </div>
+</main>
+
+<script src="../js/api.js"></script>
+<script src="../js/ai-chat.js"></script>
+<script>
+renderNavbar();
+
+if (isLoggedIn()) redirectByRole(getRole());
+
+async function doLogin() {
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const errEl    = document.getElementById('error-msg');
+  errEl.style.display = 'none';
+
+  if (!email || !password) {
+    errEl.textContent = '⚠ Please enter your email and password.';
+    errEl.style.display = 'flex'; return;
+  }
+
+  const data = await apiPost('/auth/login', { email, password });
+
+  // MFA required — store credentials and redirect to MFA page
+  if (data.mfa_required) {
+    localStorage.setItem('cm_pending_email', email);
+    localStorage.setItem('cm_pending_password', password);
+    window.location.href = 'mfa.html';
+    return;
+  }
+
+  if (data.error) {
+    errEl.textContent = '⚠ ' + data.error;
+    errEl.style.display = 'flex';
+    return;
+  }
+
+  if (data.token) {
+    setSession(data.token, data.role, data.name || email);
+    redirectByRole(data.role);
+  }
+}
+
+function quickLogin(role) {
+  const creds = {
+    buyer:  { email: 'test@example.com',   password: 'Test1234!' },
+    seller: { email: 'seller@example.com', password: 'Test1234!' },
+    admin:  { email: 'admin@example.com',  password: 'Test1234!' }
+  };
+  document.getElementById('email').value    = creds[role].email;
+  document.getElementById('password').value = creds[role].password;
+  doLogin();
+}
+</script>
+</body>
+</html>
