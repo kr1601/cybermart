@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Products — CyberMart</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+
+<body>
+
+<nav class="navbar">
+  <a href="index.html" class="logo">Cyber<span>Mart</span></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-btn active">Home</a>
+    <a href="products.html" class="nav-btn">Products</a>
+    <a href="services.html" class="nav-btn">Services</a>
+  </div>
+  <div class="nav-right">
+    <a href="login.html" class="nav-btn">Login</a>
+    <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="section-title">🛒 All Products</div>
+
+  <div class="filter-bar">
+    <input type="text" class="search-input" placeholder="🔍 Search products..." oninput="filterProducts(this.value)"/>
+    <button class="filter-chip active" onclick="filterCat('all', this)">All</button>
+    <button class="filter-chip" onclick="filterCat('network', this)">Network Testing</button>
+    <button class="filter-chip" onclick="filterCat('auth', this)">Auth Devices</button>
+    <button class="filter-chip" onclick="filterCat('storage', this)">Storage</button>
+  </div>
+
+  <div id="loading" style="text-align:center;padding:2rem;color:#aaa">
+    Loading products...
+  </div>
+
+  <div class="grid-3" id="products-grid"></div>
+</div>
+
+<footer>
+  <span>© 2025 CyberMart — Group 10</span>
+  <span class="tag tag-green">🔒 SSL Secured</span>
+</footer>
+
+<script src="js/env-config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/cybermart-assistant.js"></script>
+
+<script>
+
+// ALL_PRODUCTS stores normalized product objects for filtering
+let ALL_PRODUCTS = [];
+
+// ── Load products from API / database only ─────────────────────
+async function loadProducts() {
+  const { data, error } = await getProducts();
+  const loadingEl = document.getElementById('loading');
+
+  if (error) {
+    loadingEl.textContent = '⚠ Failed to load products: ' + error;
+    loadingEl.style.display = 'block';
+    return;
+  }
+
+  loadingEl.style.display = 'none';
+
+  // Normalize API rows for filters (category must match filter chips: network | auth | storage)
+  ALL_PRODUCTS = data.map(p => ({
+    id:          p.id,
+    name:        p.name,
+    price:       typeof p.price === 'number' ? p.price : parseFloat(p.price) || 0,
+    image_url:   p.image_url   || '',
+    icon:        p.icon        || '🔒',
+    cat:         p.category    || p.cat || '',
+    seller:      p.seller_name || p.seller || p.seller_id || 'Unknown',
+    tag:         p.tag         || '',
+    description: p.description || '',
+    features:    p.features    || []
+  }));
+
+  renderProductCards(ALL_PRODUCTS, 'products-grid');
+}
+
+// ── Filter by category ──────────────────────────────────────────
+function filterCat(cat, btn) {
+  document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const list =
+    cat === 'all'
+      ? ALL_PRODUCTS
+      : ALL_PRODUCTS.filter((p) => (String(p.cat || '').toLowerCase().includes(cat)));
+  renderProductCards(list, 'products-grid');
+}
+
+// ── Filter by search query ──────────────────────────────────────
+function filterProducts(q) {
+  const list = ALL_PRODUCTS.filter(p =>
+    p.name.toLowerCase().includes(q.toLowerCase()) ||
+    p.description.toLowerCase().includes(q.toLowerCase())
+  );
+  renderProductCards(list, 'products-grid');
+}
+
+loadProducts();
+</script>
+
+</body>
+</html>

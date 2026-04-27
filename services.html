@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Services — CyberMart</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<nav class="navbar">
+  <a href="index.html" class="logo">Cyber<span>Mart</span></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-btn active">Home</a>
+    <a href="products.html" class="nav-btn">Products</a>
+    <a href="services.html" class="nav-btn">Services</a>
+  </div>
+  <div class="nav-right">
+    <a href="login.html" class="nav-btn">Login</a>
+    <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+  </div>
+</nav>
+<div class="container">
+  <div class="section-title">🛡️ Professional Services</div>
+  <div id="loading" style="text-align:center;padding:2rem;color:#aaa">Loading services...</div>
+  <div class="grid-3" id="services-grid"></div>
+</div>
+<footer>
+  <span>© 2025 CyberMart — Group 10</span>
+  <span class="tag tag-green">🔒 SSL Secured</span>
+</footer>
+<script src="js/env-config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/cybermart-assistant.js"></script>
+<script>
+(async () => {
+  const { data, error } = await getServices();
+  const loadingEl = document.getElementById('loading');
+  const rows = Array.isArray(data) ? data : [];
+  if (loadingEl) loadingEl.style.display = 'none';
+  if (error && rows.length === 0) {
+    document.getElementById('services-grid').innerHTML =
+      '<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:2rem">⚠ Failed to load services: ' + String(error).replace(/</g, '&lt;') + '</p>';
+    return;
+  }
+  renderServiceCards(rows, 'services-grid');
+})();
+</script>
+</body>
+</html>

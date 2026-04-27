@@ -24,11 +24,6 @@ function apiUrl(endpoint) {
   return getApiBase() + endpoint;
 }
 
-function getApiRootBase() {
-  // If API_BASE is ".../api", return the origin root; otherwise return as-is.
-  return getApiBase().replace(/\/api\/?$/i, '');
-}
-
 // ── Storage helpers ──────────────────────────────────────────
 function getToken()   { return localStorage.getItem('cm_token'); }
 function getRole()    { return localStorage.getItem('cm_role'); }
@@ -84,40 +79,6 @@ async function apiGet(endpoint, isProtected = false) {
     return parsed;
   } catch (e) {
     return { error: 'Network error. ' + (e?.message || '') };
-  }
-}
-
-async function apiGetRaw(endpoint, isProtected = false) {
-  try {
-    const res = await fetch(apiUrl(endpoint), { headers: getHeaders(isProtected) });
-    const raw = await res.text();
-    let parsed;
-    try { parsed = raw ? JSON.parse(raw) : {}; } catch { parsed = null; }
-    return {
-      ok: res.ok,
-      status: res.status,
-      data: parsed,
-      error: res.ok ? null : ((parsed && parsed.error) || `HTTP ${res.status}`)
-    };
-  } catch (e) {
-    return { ok: false, status: 0, data: null, error: 'Network error. ' + (e?.message || '') };
-  }
-}
-
-async function fetchJsonUrl(url, isProtected = false) {
-  try {
-    const res = await fetch(url, { headers: getHeaders(isProtected) });
-    const raw = await res.text();
-    let parsed;
-    try { parsed = raw ? JSON.parse(raw) : {}; } catch { parsed = null; }
-    return {
-      ok: res.ok,
-      status: res.status,
-      data: parsed,
-      error: res.ok ? null : ((parsed && parsed.error) || `HTTP ${res.status}`)
-    };
-  } catch (e) {
-    return { ok: false, status: 0, data: null, error: 'Network error. ' + (e?.message || '') };
   }
 }
 
@@ -200,65 +161,22 @@ async function getProducts() {
 
 /** @returns {{ data: object[], error: string|null }} */
 async function getServices() {
-  // Keep same style as products endpoint, but tolerate hosting differences:
-  // - Railway Node route: /services
-  // - PHP shared hosting route: /services.php
-  let result = await apiGetRaw('/services', false);
-  if (!result.ok && result.status === 404) {
-    // If API_BASE is configured as origin (without /api), our first call becomes:
-    //   https://host/services
-    // but backend is mounted at:
-    //   https://host/api/services
-    // So we also try the fully-qualified /api/services on the same host.
-    result = await fetchJsonUrl(getApiRootBase() + '/api/services', false);
-  }
-  if (!result.ok && result.status === 404) {
-    result = await apiGetRaw('/services.php', false);
-  }
-  // Final fallback: call same-origin PHP API directly (works on InfinityFree).
-  if (!result.ok) {
-    result = await fetchJsonUrl('/api/services.php', false);
-  }
-  const data = result.data;
-
-  function extractRows(payload) {
-    if (Array.isArray(payload)) return payload;
-    if (!payload || typeof payload !== 'object') return [];
-    if (Array.isArray(payload.data)) return payload.data;
-    if (payload.data && Array.isArray(payload.data.items)) return payload.data.items;
-    if (payload.data && Array.isArray(payload.data.rows)) return payload.data.rows;
-    if (Array.isArray(payload.items)) return payload.items;
-    if (Array.isArray(payload.rows)) return payload.rows;
-    if (Array.isArray(payload.services)) return payload.services;
-    if (Array.isArray(payload.result)) return payload.result;
-    return [];
-  }
-
-  const rows = extractRows(data);
-  if (!rows.length && !result.ok) return { data: [], error: result.error || 'Invalid services response' };
-
-  const normalized = rows.map((s) => {
-    const approvedRaw = s?.is_approved;
-    const approved =
-      approvedRaw === undefined || approvedRaw === null
-        ? true
-        : approvedRaw === true || approvedRaw === 1 || approvedRaw === '1' || approvedRaw === 'true';
-
-    return {
-      id: s.id,
-      name: s.name || 'Service',
-      description: s.description || '',
-      price: s.price,
-      category: s.category || s.tag || '',
-      provider_id: s.provider_id,
-      provider_name: s.provider_name || s.provider || '',
-      image_url: s.image_url || s.imageUrl || '',
-      is_approved: approved
-    };
-  });
-
-  const approved = normalized.filter((s) => s.is_approved);
-  return { data: approved, error: null };
+  const data = await apiGet('/services', false);
+  if (data && data.error) return { data: [], error: data.error };
+  if (!Array.isArray(data)) return { data: [], error: 'Invalid response from server' };
+  const normalized = data.map((s) => ({
+    id: s.id,
+    name: s.name || 'Service',
+    description: s.description || '',
+    price: s.price,
+    category: s.category || s.tag || '',
+    tag: s.tag || s.category || '',
+    provider_id: s.provider_id,
+    provider_name: s.provider_name || s.provider || '',
+    image_url: s.image_url || s.imageUrl || '',
+    icon: s.icon || '🛡️'
+  }));
+  return { data: normalized, error: null };
 }
 
 // ── Auth shortcuts ───────────────────────────────────────────
@@ -347,7 +265,14 @@ async function addToCart(id, name) {
       window.location.href = 'login.html';
     return;
   }
-  // Try real API first
+  if (getRole() !== 'buyer') {
+    alert(
+      'Only buyer accounts can use the cart. You are signed in as ' +
+        String(getRole() || 'unknown') +
+        '. Use a buyer login or register as a buyer.'
+    );
+    return;
+  }
   const data = await apiPost('/cart', { product_id: id, quantity: 1 }, true);
   if (data.error) {
     alert('⚠ ' + data.error);
@@ -400,7 +325,7 @@ function renderProductCards(list, containerId) {
         <div class="card-price">${priceDisp}</div>
         <div class="card-actions">
           <button type="button" class="btn btn-primary btn-sm"
-            onclick="addToCart(${p.id},${JSON.stringify(p.name)})">Add to Cart</button>
+            onclick='addToCart(${p.id}, ${JSON.stringify(String(p.name || ''))})'>Add to Cart</button>
           <a href="product-detail.html?id=${p.id}" class="btn btn-outline btn-sm"
             >Details</a>
         </div>
@@ -424,13 +349,13 @@ function renderServiceCards(list, containerId) {
           : (s.icon || '🛡️')
       }</div>
       <div class="card-body">
-        <span class="tag tag-blue" style="margin-bottom:0.5rem;display:inline-block">${s.tag}</span>
+        <span class="tag tag-blue" style="margin-bottom:0.5rem;display:inline-block">${escapeNavHtml(s.category || s.tag || 'Service')}</span>
         <div class="card-title">${s.name}</div>
-        <div class="card-meta">by ${s.provider || s.provider_name || 'Unknown'}</div>
+        <div class="card-meta">by ${escapeNavHtml(s.provider_name || s.provider || 'Unknown')}</div>
         <div class="card-price">${s.price}</div>
         <div class="card-actions">
-          <button class="btn btn-blue btn-sm" onclick="bookService(${s.id},'${s.name}')">Book Now</button>
-          <button class="btn btn-outline btn-sm">Info</button>
+          <button type="button" class="btn btn-blue btn-sm" onclick='bookService(${s.id}, ${JSON.stringify(String(s.name || ''))})'>Book Now</button>
+          <a href="service-detail.html?id=${s.id}" class="btn btn-outline btn-sm">Details</a>
         </div>
       </div>
     </div>`).join('');

@@ -33,12 +33,19 @@ router.post('/', authenticate, authorize('buyer'), async (req, res) => {
       return res.status(400).json({ error: 'product_id is required' });
     }
 
-    const [products] = await pool.query(
-      'SELECT * FROM products WHERE id = ? AND is_approved = 1',
-      [product_id]
-    );
+    const [products] = await pool.query('SELECT * FROM products WHERE id = ?', [product_id]);
     if (products.length === 0) {
-      return res.status(404).json({ error: 'Product not found or not available' });
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    const pRow = products[0];
+    if (
+      Object.prototype.hasOwnProperty.call(pRow, 'is_approved') &&
+      pRow.is_approved != null &&
+      Number(pRow.is_approved) !== 1
+    ) {
+      return res.status(404).json({
+        error: 'This product is not approved for sale yet. Only approved listings can be added to the cart.'
+      });
     }
 
     if (products[0].stock < quantity) {

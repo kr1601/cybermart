@@ -4,10 +4,21 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Product — CyberMart</title>
-<link rel="stylesheet" href="../css/style.css"/>
+<link rel="stylesheet" href="css/style.css"/>
 </head>
 <body>
-<div id="navbar-placeholder"></div>
+<nav class="navbar">
+  <a href="index.html" class="logo">Cyber<span>Mart</span></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-btn">Home</a>
+    <a href="products.html" class="nav-btn active">Products</a>
+    <a href="services.html" class="nav-btn">Services</a>
+  </div>
+  <div class="nav-right">
+    <a href="login.html" class="nav-btn">Login</a>
+    <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+  </div>
+</nav>
 <div class="container" id="detail-root">
   <div style="text-align:center;padding:3rem;color:var(--muted)">Loading product...</div>
 </div>
@@ -15,11 +26,10 @@
   <span>© 2025 CyberMart — Group 10</span>
   <span class="tag tag-green">🔒 SSL Secured</span>
 </footer>
-<script src="../js/api.js"></script>
-<script src="../js/ai-chat.js"></script>
+<script src="js/env-config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/cybermart-assistant.js"></script>
 <script>
-renderNavbar('products');
-
 function escapeHtml(s) {
   const d = document.createElement('div');
   d.textContent = s || '';
@@ -35,37 +45,33 @@ async function renderDetail() {
     return;
   }
 
-  // Try real API first
   const p = await apiGet('/products/' + idParam);
 
   if (p.error || !p.id) {
-    // Fall back to mock data
-    const mock = getProductById(idParam);
-    if (!mock) { showNotFound(root); return; }
-    renderProduct(root, {
-      id: mock.id,
-      name: mock.name,
-      price: mock.price,
-      icon: mock.icon || '🔒',
-      category: mock.cat,
-      seller_name: mock.seller,
-      tag: mock.tag,
-      description: mock.description,
-      features: mock.features || []
-    });
+    showNotFound(root);
     return;
   }
+
+  let features = p.features || [];
+  if (typeof features === 'string') {
+    try { features = JSON.parse(features); } catch { features = []; }
+  }
+  if (!Array.isArray(features)) features = [];
+
+  const priceNum = parseFloat(p.price);
+  const priceDisp = Number.isFinite(priceNum) ? '$' + priceNum.toFixed(2) : String(p.price || '');
 
   renderProduct(root, {
     id: p.id,
     name: p.name,
-    price: '$' + parseFloat(p.price).toFixed(2),
+    price: priceDisp,
+    image_url: p.image_url || '',
     icon: p.icon || '🔒',
-    category: p.category,
-    seller_name: p.seller_name || 'Unknown',
-    tag: '',
+    category: p.category || p.cat || '',
+    seller_name: p.seller_name || p.seller || p.seller_id || 'Unknown',
+    tag: p.tag || '',
     description: p.description || '',
-    features: []
+    features
   });
 }
 
@@ -80,12 +86,16 @@ function renderProduct(root, p) {
     '<li>' + escapeHtml(f) + '</li>'
   ).join('');
 
+  const mediaHtml = p.image_url
+    ? '<img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.name || 'Product') + '" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.replaceWith(document.createTextNode(' + JSON.stringify(p.icon || '🔒') + '))" />'
+    : escapeHtml(p.icon || '🔒');
+
   root.innerHTML =
     '<nav class="product-detail-breadcrumb" aria-label="Breadcrumb">' +
     '<a href="products.html">Products</a> <span aria-hidden="true"> / </span> ' + escapeHtml(p.name) +
     '</nav>' +
     '<div class="product-detail-grid">' +
-    '  <div class="product-detail-visual" aria-hidden="true">' + p.icon + '</div>' +
+    '  <div class="product-detail-visual" aria-hidden="true">' + mediaHtml + '</div>' +
     '  <div class="product-detail-main">' +
     '    <h1>' + escapeHtml(p.name) + '</h1>' +
     '    <div class="product-detail-meta-row">' +

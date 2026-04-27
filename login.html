@@ -4,14 +4,25 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Login — CyberMart</title>
-<link rel="stylesheet" href="../css/style.css"/>
+<link rel="stylesheet" href="css/style.css"/>
 <style>
 body { display: flex; flex-direction: column; }
 main { flex: 1; display: flex; }
 </style>
 </head>
 <body>
-<div id="navbar-placeholder"></div>
+<nav class="navbar">
+  <a href="index.html" class="logo">Cyber<span>Mart</span></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-btn active">Home</a>
+    <a href="products.html" class="nav-btn">Products</a>
+    <a href="services.html" class="nav-btn">Services</a>
+  </div>
+  <div class="nav-right">
+    <a href="login.html" class="nav-btn">Login</a>
+    <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+  </div>
+</nav>
 <main>
   <div class="auth-wrap">
     <div class="auth-box fade-in">
@@ -42,10 +53,10 @@ main { flex: 1; display: flex; }
   </div>
 </main>
 
-<script src="../js/api.js"></script>
-<script src="../js/ai-chat.js"></script>
+<script src="js/api.js"></script>
+<script src="js/env-config.js"></script>
+<script src="js/cybermart-assistant.js"></script>
 <script>
-renderNavbar();
 
 if (isLoggedIn()) redirectByRole(getRole());
 

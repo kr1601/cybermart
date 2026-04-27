@@ -4,14 +4,25 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Seller Dashboard — CyberMart</title>
-<link rel="stylesheet" href="../css/style.css"/>
+<link rel="stylesheet" href="css/style.css"/>
 <style>
 body{display:flex;flex-direction:column;}
-.sidebar-avatar-seller { width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent2),#a855f7);display:flex;align-items:center;justify-content:center;font-size:1.35rem;font-weight:800;color:#000;margin-bottom:0.5rem; }
+.sidebar-avatar-seller{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent2),#a855f7);display:flex;align-items:center;justify-content:center;font-size:1.35rem;font-weight:800;color:#000;margin-bottom:0.5rem;}
 </style>
 </head>
 <body>
-<div id="navbar-placeholder"></div>
+<nav class="navbar">
+  <a href="index.html" class="logo">Cyber<span>Mart</span></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-btn active">Home</a>
+    <a href="products.html" class="nav-btn">Products</a>
+    <a href="services.html" class="nav-btn">Services</a>
+  </div>
+  <div class="nav-right">
+    <a href="login.html" class="nav-btn">Login</a>
+    <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+  </div>
+</nav>
 <div class="dash-layout">
   <div class="sidebar">
     <div class="sidebar-avatar-seller">S</div>
@@ -41,7 +52,7 @@ body{display:flex;flex-direction:column;}
     <div id="tab-listings" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
         <div class="section-title" style="margin:0">My Listings</div>
-        <button class="btn btn-primary btn-sm" onclick="showTab('add-product', null)">+ Add Product</button>
+        <button class="btn btn-primary btn-sm" onclick="showTab('add-product',null)">+ Add Product</button>
       </div>
       <div class="table-wrap"><table>
         <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
@@ -54,7 +65,7 @@ body{display:flex;flex-direction:column;}
     <!-- ADD PRODUCT -->
     <div id="tab-add-product" style="display:none">
       <div class="section-title">Add New Product</div>
-      <div id="add-error" style="display:none" class="alert alert-warn"></div>
+      <div id="add-error"   style="display:none" class="alert alert-warn"></div>
       <div id="add-success" style="display:none" class="alert alert-success"></div>
       <div class="form-group">
         <label class="form-label">Product Name</label>
@@ -90,11 +101,11 @@ body{display:flex;flex-direction:column;}
 
   </div>
 </div>
-<script src="../js/api.js"></script>
-<script src="../js/ai-chat.js"></script>
+<script src="js/api.js"></script>
+<script src="js/env-config.js"></script>
+<script src="js/cybermart-assistant.js"></script>
 <script>
 requireAuth(['seller']);
-renderNavbar();
 document.getElementById('sidebar-name').textContent = getName() || 'Seller';
 
 function showTab(tab, btn) {
@@ -112,19 +123,16 @@ function statusTag(approved) {
 }
 
 async function loadListings() {
-  const data = await apiGet('/seller/products');
-
+  // FIX: isProtected = true
+  const data = await apiGet('/seller/products', true);
   if (!Array.isArray(data)) {
     document.getElementById('listings-body').innerHTML =
       '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Failed to load listings.</td></tr>';
     return;
   }
 
-  // Update stats
-  const active = data.filter(p => p.is_approved).length;
-  const pending = data.filter(p => !p.is_approved).length;
-  document.getElementById('stat-listings').textContent = active;
-  document.getElementById('stat-pending').textContent = pending;
+  document.getElementById('stat-listings').textContent = data.filter(p =>  p.is_approved).length;
+  document.getElementById('stat-pending').textContent  = data.filter(p => !p.is_approved).length;
 
   if (data.length === 0) {
     document.getElementById('listings-body').innerHTML =
@@ -139,20 +147,15 @@ async function loadListings() {
       <td style="color:var(--accent);font-family:var(--font-mono)">$${parseFloat(p.price).toFixed(2)}</td>
       <td>${p.stock}</td>
       <td>${statusTag(p.is_approved)}</td>
-      <td>
-        <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Delete</button>
-      </td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Delete</button></td>
     </tr>`).join('');
 }
 
 async function deleteProduct(id) {
   if (!confirm('Delete this product?')) return;
   const data = await apiDelete('/products/' + id);
-  if (data.error) {
-    alert('⚠ ' + data.error);
-  } else {
-    loadListings();
-  }
+  if (data.error) { alert('⚠ ' + data.error); return; }
+  loadListings();
 }
 
 async function addProduct() {
@@ -169,33 +172,38 @@ async function addProduct() {
   okEl.style.display  = 'none';
 
   if (!name || !price || !category) {
-    errEl.textContent = '⚠ Name, price and category are required.';
-    errEl.style.display = 'flex'; return;
-  }
-
-  const data = await apiPost('/products', { name, description, price: parseFloat(price), category, stock: parseInt(stock) || 0, icon });
-
-  if (data.error) {
-    errEl.textContent = '⚠ ' + data.error;
+    errEl.textContent   = '⚠ Name, price and category are required.';
     errEl.style.display = 'flex';
     return;
   }
 
-  okEl.textContent = '✅ Product submitted and awaiting admin approval!';
+  // FIX: isProtected = true
+  const data = await apiPost('/products', {
+    name, description,
+    price:    parseFloat(price),
+    category,
+    stock:    parseInt(stock) || 0,
+    icon
+  }, true);
+
+  if (data.error) {
+    errEl.textContent   = '⚠ ' + data.error;
+    errEl.style.display = 'flex';
+    return;
+  }
+
+  okEl.textContent   = '✅ Product submitted and awaiting admin approval!';
   okEl.style.display = 'flex';
-  document.getElementById('p-name').value = '';
-  document.getElementById('p-desc').value = '';
-  document.getElementById('p-price').value = '';
-  document.getElementById('p-stock').value = '';
-  document.getElementById('p-icon').value = '';
+  ['p-name','p-desc','p-price','p-stock','p-icon'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
 }
 
-// Load stats on page load
 async function loadStats() {
-  const data = await apiGet('/seller/products');
+  const data = await apiGet('/seller/products', true);
   if (!Array.isArray(data)) return;
-  document.getElementById('stat-listings').textContent = data.filter(p => p.is_approved).length;
-  document.getElementById('stat-pending').textContent = data.filter(p => !p.is_approved).length;
+  document.getElementById('stat-listings').textContent = data.filter(p =>  p.is_approved).length;
+  document.getElementById('stat-pending').textContent  = data.filter(p => !p.is_approved).length;
 }
 
 loadStats();

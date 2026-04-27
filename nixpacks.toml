@@ -1,0 +1,7 @@
+# Railway/Nixpacks: repo root only has static HTML + ./server API.
+# Without this, deploy may not run Express from ./server → /api/* returns 404.
+[phases.install]
+cmds = ["cd server && npm install"]
+
+[start]
+cmd = "cd server && node index.js"

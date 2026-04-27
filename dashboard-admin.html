@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Admin Dashboard — CyberMart</title>
-<link rel="stylesheet" href="../css/style.css"/>
+<link rel="stylesheet" href="css/style.css"/>
 <style>
 body{display:flex;flex-direction:column;}
 .sidebar-avatar-admin{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--danger),#ff9500);display:flex;align-items:center;justify-content:center;font-size:1.15rem;font-weight:800;color:#000;margin-bottom:0.5rem;}
@@ -16,11 +16,22 @@ body{display:flex;flex-direction:column;}
 </style>
 </head>
 <body>
-<div id="navbar-placeholder"></div>
+<nav class="navbar">
+  <a href="index.html" class="logo">Cyber<span>Mart</span></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-btn active">Home</a>
+    <a href="products.html" class="nav-btn">Products</a>
+    <a href="services.html" class="nav-btn">Services</a>
+  </div>
+  <div class="nav-right">
+    <a href="login.html" class="nav-btn">Login</a>
+    <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+  </div>
+</nav>
 <div class="dash-layout">
   <div class="sidebar">
     <div class="sidebar-avatar-admin">A</div>
-    <div class="sidebar-name">Admin User</div>
+    <div class="sidebar-name" id="sidebar-name">Admin</div>
     <div class="sidebar-role"><span class="badge badge-admin">ADMIN</span></div>
     <div class="sidebar-menu">
       <button class="menu-item active" onclick="showTab('overview',this)">📊 Overview</button>
@@ -88,11 +99,13 @@ body{display:flex;flex-direction:column;}
 
   </div>
 </div>
-<script src="../js/api.js"></script>
-<script src="../js/ai-chat.js"></script>
+<script src="js/api.js"></script>
+<script src="js/env-config.js"></script>
+<script src="js/cybermart-assistant.js"></script>
 <script>
 requireAuth(['admin']);
-renderNavbar();
+
+document.getElementById('sidebar-name').textContent = getName() || 'Admin';
 
 function showTab(tab, btn) {
   document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
@@ -100,43 +113,38 @@ function showTab(tab, btn) {
   document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (tab === 'products') loadPendingProducts();
-  if (tab === 'users') loadUsers();
-  if (tab === 'orders') loadAllOrders();
-  if (tab === 'logs') loadLogs();
+  if (tab === 'users')    loadUsers();
+  if (tab === 'orders')   loadAllOrders();
+  if (tab === 'logs')     loadLogs();
 }
 
 function statusTag(status) {
-  const map = { delivered: 'tag-green', shipped: 'tag-blue', processing: 'tag-warn', pending: 'tag-warn', cancelled: 'tag-red' };
-  return `<span class="tag ${map[status?.toLowerCase()] || 'tag-blue'}">${status}</span>`;
+  const map = { delivered:'tag-green', shipped:'tag-blue', processing:'tag-warn', pending:'tag-warn', cancelled:'tag-red' };
+  return '<span class="tag ' + (map[status?.toLowerCase()] || 'tag-blue') + '">' + status + '</span>';
 }
 
 function formatDate(d) {
-  return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return new Date(d).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
 }
 
-// Load overview stats
+// ── Overview stats ───────────────────────────────────────────
 async function loadStats() {
   const [users, orders, products] = await Promise.all([
-    apiGet('/admin/users'),
-    apiGet('/orders/all'),
-    apiGet('/products?all=true')
+    apiGet('/admin/users',           true),
+    apiGet('/orders/all',            true),
+    apiGet('/products?all=true',     true)
   ]);
-
   if (Array.isArray(users)) {
-    document.getElementById('stat-users').textContent = users.length;
+    document.getElementById('stat-users').textContent  = users.length;
     document.getElementById('stat-locked').textContent = users.filter(u => u.is_locked).length;
   }
-  if (Array.isArray(orders)) {
-    document.getElementById('stat-orders').textContent = orders.length;
-  }
-  if (Array.isArray(products)) {
-    document.getElementById('stat-pending-products').textContent = products.filter(p => !p.is_approved).length;
-  }
+  if (Array.isArray(orders))   document.getElementById('stat-orders').textContent           = orders.length;
+  if (Array.isArray(products)) document.getElementById('stat-pending-products').textContent = products.filter(p => !p.is_approved).length;
 }
 
-// Load pending products
+// ── Pending products ─────────────────────────────────────────
 async function loadPendingProducts() {
-  const data = await apiGet('/admin/products/pending');
+  const data = await apiGet('/admin/products/pending', true);
   if (!Array.isArray(data) || data.length === 0) {
     document.getElementById('pending-products-body').innerHTML =
       '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No pending products.</td></tr>';
@@ -145,12 +153,12 @@ async function loadPendingProducts() {
   document.getElementById('pending-products-body').innerHTML = data.map(p => `
     <tr id="prod-row-${p.id}">
       <td>${p.icon || '🔒'} ${p.name}</td>
-      <td>${p.seller_name}</td>
+      <td>${p.seller_name || '—'}</td>
       <td style="color:var(--accent);font-family:var(--font-mono)">$${parseFloat(p.price).toFixed(2)}</td>
       <td>${p.category}</td>
       <td>
         <button class="btn btn-primary btn-sm" onclick="approveProduct(${p.id})">✓ Approve</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">✗ Reject</button>
+        <button class="btn btn-danger btn-sm"  onclick="deleteProduct(${p.id})">✗ Reject</button>
       </td>
     </tr>`).join('');
 }
@@ -169,9 +177,9 @@ async function deleteProduct(id) {
   document.getElementById('prod-row-' + id).remove();
 }
 
-// Load users
+// ── Users ────────────────────────────────────────────────────
 async function loadUsers() {
-  const data = await apiGet('/admin/users');
+  const data = await apiGet('/admin/users', true);
   if (!Array.isArray(data)) {
     document.getElementById('users-body').innerHTML =
       '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Failed to load users.</td></tr>';
@@ -185,23 +193,21 @@ async function loadUsers() {
       <td>${u.is_locked ? '<span class="tag tag-red">Locked</span>' : '<span class="tag tag-green">Active</span>'}</td>
       <td>
         ${u.is_locked
-          ? `<button class="btn btn-primary btn-sm" onclick="toggleLock(${u.id}, false)">🔓 Unlock</button>`
-          : `<button class="btn btn-danger btn-sm" onclick="toggleLock(${u.id}, true)">🔒 Lock</button>`
-        }
+          ? `<button class="btn btn-primary btn-sm" onclick="toggleLock(${u.id},false)">🔓 Unlock</button>`
+          : `<button class="btn btn-danger btn-sm"  onclick="toggleLock(${u.id},true)">🔒 Lock</button>`}
       </td>
     </tr>`).join('');
 }
 
 async function toggleLock(id, lock) {
-  const endpoint = lock ? `/admin/lock/${id}` : `/admin/unlock/${id}`;
-  const data = await apiPost(endpoint, {});
+  const data = await apiPost(lock ? '/admin/lock/'+id : '/admin/unlock/'+id, {}, true);
   if (data.error) { alert('⚠ ' + data.error); return; }
   loadUsers();
 }
 
-// Load all orders
+// ── All orders ───────────────────────────────────────────────
 async function loadAllOrders() {
-  const data = await apiGet('/orders/all');
+  const data = await apiGet('/orders/all', true);
   if (!Array.isArray(data)) {
     document.getElementById('all-orders-body').innerHTML =
       '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Failed to load orders.</td></tr>';
@@ -220,12 +226,13 @@ async function loadAllOrders() {
       <td style="color:var(--accent);font-family:var(--font-mono)">$${parseFloat(o.total).toFixed(2)}</td>
       <td>${statusTag(o.status)}</td>
       <td>
-        <select class="form-input" style="padding:0.2rem;font-size:0.8rem" onchange="updateOrderStatus(${o.id}, this.value)">
-          <option ${o.status==='pending'?'selected':''}>pending</option>
-          <option ${o.status==='processing'?'selected':''}>processing</option>
-          <option ${o.status==='shipped'?'selected':''}>shipped</option>
-          <option ${o.status==='delivered'?'selected':''}>delivered</option>
-          <option ${o.status==='cancelled'?'selected':''}>cancelled</option>
+        <select class="form-input" style="padding:0.2rem;font-size:0.8rem"
+          onchange="updateOrderStatus(${o.id}, this.value)">
+          <option ${o.status==='pending'    ?'selected':''}>pending</option>
+          <option ${o.status==='processing' ?'selected':''}>processing</option>
+          <option ${o.status==='shipped'    ?'selected':''}>shipped</option>
+          <option ${o.status==='delivered'  ?'selected':''}>delivered</option>
+          <option ${o.status==='cancelled'  ?'selected':''}>cancelled</option>
         </select>
       </td>
     </tr>`).join('');
@@ -236,37 +243,19 @@ async function updateOrderStatus(id, status) {
   if (data.error) alert('⚠ ' + data.error);
 }
 
-// Load audit logs
+// ── Audit logs ───────────────────────────────────────────────
 async function loadLogs() {
-  const data = await apiGet('/admin/logs');
+  const data = await apiGet('/admin/logs', true);
   if (!Array.isArray(data)) {
-    document.getElementById('logs-container').innerHTML =
-      '<div style="color:var(--muted)">Failed to load logs.</div>';
+    document.getElementById('logs-container').innerHTML = '<div style="color:var(--muted)">Failed to load logs.</div>';
     return;
   }
-  const typeClass = { LOGIN_SUCCESS: 'info', LOGIN_FAIL: 'warn', LOGIN_FAIL_MFA: 'warn', ACCOUNT_LOCKED: 'error', ACCOUNT_UNLOCKED: 'info' };
+  const typeClass = { LOGIN_SUCCESS:'info', LOGIN_FAIL:'warn', LOGIN_FAIL_MFA:'warn', ACCOUNT_LOCKED:'error', ACCOUNT_UNLOCKED:'info' };
   document.getElementById('logs-container').innerHTML = data.map(log => `
     <div class="log-entry ${typeClass[log.event_type] || 'info'}">
       <span class="log-time">${new Date(log.created_at).toLocaleTimeString()}</span>
       <span>${log.event_type} · ${log.details} · IP: ${log.ip_address}</span>
     </div>`).join('');
-}
-
-// Add apiPatch to support PATCH requests
-async function apiPatch(endpoint, data = {}) {
-  try {
-    const res = await fetch('http://localhost:3000/api' + endpoint, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + getToken()
-      },
-      body: JSON.stringify(data)
-    });
-    return await res.json();
-  } catch (e) {
-    return { error: 'Network error. Please try again.' };
-  }
 }
 
 loadStats();

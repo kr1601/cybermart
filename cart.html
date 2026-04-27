@@ -4,8 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Cart — CyberMart</title>
-<link rel="stylesheet" href="../css/style.css"/>
-
+<link rel="stylesheet" href="css/style.css"/>
 <style>
 .cart-item{display:flex;gap:1rem;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:0.8rem;}
 .cart-icon{font-size:2rem;width:56px;height:56px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border-radius:8px;flex-shrink:0;}
@@ -19,39 +18,28 @@
 .cart-layout{display:grid;grid-template-columns:1fr 320px;gap:1.5rem;align-items:start;}
 @media(max-width:700px){.cart-layout{grid-template-columns:1fr;}}
 </style>
-
 </head>
-
 <body>
-
 <div id="navbar-placeholder"></div>
-
 <div class="container">
   <div class="section-title">🛒 Your Cart</div>
 
-  <div id="loading" style="text-align:center;padding:2rem;color:#aaa">
-    Loading cart...
-  </div>
+  <div id="loading" style="text-align:center;padding:2rem;color:#aaa">Loading cart...</div>
 
   <div class="cart-layout" id="cart-layout" style="display:none">
     <div id="cart-items"></div>
-
     <div class="cart-summary">
       <div class="section-title" style="font-size:1.1rem">Order Summary</div>
-
       <div class="summary-row"><span>Subtotal</span><span id="subtotal">$0.00</span></div>
       <div class="summary-row"><span>Tax (8.25%)</span><span id="tax">$0.00</span></div>
       <div class="summary-row"><span>Shipping</span><span class="tag tag-green">Free</span></div>
-
       <div class="summary-row total">
         <span>Total</span>
         <span id="total" style="color:var(--accent)">$0.00</span>
       </div>
-
       <button onclick="doCheckout()" class="btn btn-primary form-btn" style="width:100%;margin-top:1rem">
         Proceed to Checkout
       </button>
-
       <a href="products.html" class="btn btn-outline form-btn" style="width:100%;margin-top:0.5rem">
         Continue Shopping
       </a>
@@ -61,27 +49,25 @@
   <div id="empty-cart" style="display:none;text-align:center;padding:3rem;color:var(--muted)">
     <div style="font-size:3rem">🛒</div>
     <div style="margin-top:1rem">Your cart is empty</div>
-    <a href="products.html" class="btn btn-primary" style="margin-top:1rem;display:inline-block">
-      Browse Products
-    </a>
+    <a href="products.html" class="btn btn-primary" style="margin-top:1rem;display:inline-block">Browse Products</a>
   </div>
 </div>
 
-<script src="../js/api.js"></script>
-
+<script src="js/env-config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/cybermart-assistant.js"></script>
 <script>
 requireAuth(['buyer']);
 renderNavbar();
 
-// ================= LOAD CART =================
 async function loadCart() {
-  const data = await apiGet('/cart', true);  // 🔥 FIXED
-
+  const data = await apiGet('/cart', true);
   document.getElementById('loading').style.display = 'none';
 
   if (data.error) {
-    document.getElementById('loading').textContent = '⚠ Failed to load cart.';
-    document.getElementById('loading').style.display = 'block';
+    const el = document.getElementById('loading');
+    el.textContent    = '⚠ Failed to load cart.';
+    el.style.display  = 'block';
     return;
   }
 
@@ -91,52 +77,34 @@ async function loadCart() {
   }
 
   document.getElementById('cart-layout').style.display = 'grid';
-
   document.getElementById('cart-items').innerHTML = data.items.map(item => `
     <div class="cart-item">
       <div class="cart-icon">${item.icon || '🔒'}</div>
-
       <div class="cart-info">
         <div class="cart-name">${item.name}</div>
-        <div class="cart-seller">
-          Qty: ${item.quantity}
-        </div>
+        <div class="cart-seller">Qty: ${item.quantity}</div>
       </div>
-
-      <div class="cart-price">
-        $${parseFloat(item.subtotal).toFixed(2)}
-      </div>
-
-      <button onclick="removeItem(${item.id})">✕</button>
-    </div>
-  `).join('');
+      <div class="cart-price">$${parseFloat(item.subtotal).toFixed(2)}</div>
+      <button class="btn btn-danger btn-sm" onclick="removeItem(${item.id})">✕</button>
+    </div>`).join('');
 
   const subtotal = parseFloat(data.total);
-  const tax = subtotal * 0.0825;
-  const total = subtotal + tax;
-
+  const tax      = subtotal * 0.0825;
+  const total    = subtotal + tax;
   document.getElementById('subtotal').textContent = '$' + subtotal.toFixed(2);
-  document.getElementById('tax').textContent = '$' + tax.toFixed(2);
-  document.getElementById('total').textContent = '$' + total.toFixed(2);
+  document.getElementById('tax').textContent      = '$' + tax.toFixed(2);
+  document.getElementById('total').textContent    = '$' + total.toFixed(2);
 }
 
-// ================= REMOVE ITEM =================
 async function removeItem(id) {
   const data = await apiDelete('/cart/' + id);
-
-  if (data.error) {
-    alert('⚠ ' + data.error);
-  } else {
-    loadCart();
-  }
+  if (data.error) { alert('⚠ ' + data.error); return; }
+  loadCart();
 }
 
-// ================= CHECKOUT =================
 async function doCheckout() {
   if (!confirm('Place order for all items?')) return;
-
-  const data = await apiPost('/orders/checkout', {}, true); // 🔥 FIXED
-
+  const data = await apiPost('/orders/checkout', {}, true);
   if (data.error) {
     alert('⚠ ' + data.error);
   } else {
@@ -147,6 +115,5 @@ async function doCheckout() {
 
 loadCart();
 </script>
-
 </body>
 </html>

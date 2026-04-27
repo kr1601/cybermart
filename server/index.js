@@ -20,9 +20,11 @@ const DEFAULT_ALLOWED_ORIGINS = [
   'http://127.0.0.1:3000'
 ];
 
+const ALLOWED_ORIGINS_EXTRA = parseAllowedOriginsFromEnv();
+
 const ALLOWED_ORIGINS = new Set([
   ...DEFAULT_ALLOWED_ORIGINS,
-  ...parseAllowedOriginsFromEnv()
+  ...ALLOWED_ORIGINS_EXTRA
 ]);
 
 function isInfinityFreeOrigin(origin) {
@@ -43,6 +45,11 @@ function isInfinityFreeOrigin(origin) {
 app.use(cors({
   origin(origin, cb) {
     if (!origin) return cb(null, true);
+    // When ALLOWED_ORIGINS is unset, reflect the request origin so static hosts
+    // (GitHub Pages, Netlify, another Railway URL) can call the API without extra env.
+    if (ALLOWED_ORIGINS_EXTRA.length === 0) {
+      return cb(null, true);
+    }
     if (ALLOWED_ORIGINS.has(origin)) return cb(null, true);
     if (isInfinityFreeOrigin(origin)) return cb(null, true);
     return cb(new Error(`CORS blocked for origin: ${origin}`));
@@ -78,6 +85,7 @@ const servicesRoutes = require('./routes/services');
 const cartRoutes = require('./routes/cart');
 const orderRoutes = require('./routes/orders');
 const mfaRoutes = require('./routes/mfa');
+const aiRoutes = require('./routes/ai');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -87,6 +95,7 @@ app.use('/api/services', servicesRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/mfa', mfaRoutes);
+app.use('/api/ai', aiRoutes);
 
 /* =========================
    PAYMENTS ROUTES

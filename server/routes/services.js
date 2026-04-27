@@ -14,35 +14,52 @@ router.get('/', async (req, res) => {
       String(req.query.include_unapproved || '').toLowerCase() === 'true' ||
       String(req.query.includeUnapproved || '').toLowerCase() === 'true';
 
-    // We keep the SQL tolerant: many schemas use either `category` or `tag`.
-    // If your table doesn't have one of these columns, MySQL will throw and you'll see it in the response.
-    let query = `
-      SELECT *
-      FROM services
+    // Base schema (schema.sql): services has category, no is_approved/tag.
+    // Extended schemas may add those columns — try extended query first, then fall back.
+    async function runQuery(useExtended) {
+      let query = `
+      SELECT s.*, u.name AS provider_name
+      FROM services s
+      LEFT JOIN users u ON s.provider_id = u.id
       WHERE 1=1
     `;
-    const params = [];
+      const params = [];
 
-    if (!includeUnapproved) {
-      // If your schema has is_approved, this filters to approved only.
-      // If it doesn't, remove this line.
-      query += ' AND (is_approved = 1 OR is_approved IS NULL)';
+      if (useExtended && !includeUnapproved) {
+        query += ' AND (s.is_approved = 1 OR s.is_approved IS NULL)';
+      }
+
+      if (category) {
+        query += useExtended
+          ? ' AND (s.category = ? OR s.tag = ?)'
+          : ' AND s.category = ?';
+        if (useExtended) params.push(category, category);
+        else params.push(category);
+      }
+
+      if (search) {
+        query += ' AND (s.name LIKE ? OR s.description LIKE ?)';
+        params.push(`%${search}%`, `%${search}%`);
+      }
+
+      query += ' ORDER BY s.id DESC';
+      const [rows] = await pool.query(query, params);
+      return rows || [];
     }
 
-    if (category) {
-      query += ' AND (category = ? OR tag = ?)';
-      params.push(category, category);
+    let rows;
+    try {
+      rows = await runQuery(true);
+    } catch (firstErr) {
+      const msg = String(firstErr.message || '');
+      if (msg.includes('Unknown column')) {
+        rows = await runQuery(false);
+      } else {
+        throw firstErr;
+      }
     }
 
-    if (search) {
-      query += ' AND (name LIKE ? OR description LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
-    }
-
-    query += ' ORDER BY id DESC';
-
-    const [rows] = await pool.query(query, params);
-    res.json(rows || []);
+    res.json(rows);
   } catch (err) {
     console.error('SERVICES ERROR:', err);
     res.status(500).json({
@@ -55,7 +72,13 @@ router.get('/', async (req, res) => {
 // Public: get single service
 router.get('/:id', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM services WHERE id = ?', [req.params.id]);
+    const [rows] = await pool.query(
+      `SELECT s.*, u.name AS provider_name
+       FROM services s
+       LEFT JOIN users u ON s.provider_id = u.id
+       WHERE s.id = ?`,
+      [req.params.id]
+    );
     if (!rows || rows.length === 0) return res.status(404).json({ error: 'Service not found' });
     res.json(rows[0]);
   } catch (err) {

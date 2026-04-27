@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Service — CyberMart</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<nav class="navbar">
+  <a href="index.html" class="logo">Cyber<span>Mart</span></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-btn">Home</a>
+    <a href="products.html" class="nav-btn">Products</a>
+    <a href="services.html" class="nav-btn active">Services</a>
+  </div>
+  <div class="nav-right">
+    <a href="login.html" class="nav-btn">Login</a>
+    <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+  </div>
+</nav>
+<div class="container" id="detail-root">
+  <div style="text-align:center;padding:3rem;color:var(--muted)">Loading service...</div>
+</div>
+<footer>
+  <span>© 2025 CyberMart — Group 10</span>
+  <span class="tag tag-green">🔒 SSL Secured</span>
+</footer>
+<script src="js/env-config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/cybermart-assistant.js"></script>
+<script>
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+async function renderDetail() {
+  const root = document.getElementById('detail-root');
+  const idParam = new URLSearchParams(window.location.search).get('id');
+
+  if (!idParam) {
+    showNotFound(root);
+    return;
+  }
+
+  const s = await apiGet('/services/' + idParam);
+
+  if (s.error || s.id == null) {
+    showNotFound(root);
+    return;
+  }
+
+  const priceNum = parseFloat(s.price);
+  const priceDisp = Number.isFinite(priceNum) ? '$' + priceNum.toFixed(2) : String(s.price || '');
+  const cat = s.category || s.tag || '';
+
+  renderService(root, {
+    id: s.id,
+    name: s.name,
+    price: priceDisp,
+    category: cat,
+    provider_name: s.provider_name || s.provider || (s.provider_id ? ('Provider #' + s.provider_id) : 'Unknown'),
+    description: s.description || '',
+    image_url: s.image_url || s.imageUrl || '',
+    icon: s.icon || '🛡️'
+  });
+}
+
+function renderService(root, s) {
+  document.title = s.name + ' — CyberMart';
+
+  const tagHtml = s.category
+    ? '<span class="tag tag-blue">' + escapeHtml(s.category) + '</span>'
+    : '';
+
+  const mediaHtml = s.image_url
+    ? '<img src="' + escapeHtml(s.image_url) + '" alt="' + escapeHtml(s.name || 'Service') + '" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.replaceWith(document.createTextNode(' + JSON.stringify(s.icon || '🛡️') + '))" />'
+    : escapeHtml(s.icon || '🛡️');
+
+  root.innerHTML =
+    '<nav class="product-detail-breadcrumb" aria-label="Breadcrumb">' +
+    '<a href="services.html">Services</a> <span aria-hidden="true"> / </span> ' + escapeHtml(s.name) +
+    '</nav>' +
+    '<div class="product-detail-grid">' +
+    '  <div class="product-detail-visual" aria-hidden="true">' + mediaHtml + '</div>' +
+    '  <div class="product-detail-main">' +
+    '    <h1>' + escapeHtml(s.name) + '</h1>' +
+    '    <div class="product-detail-meta-row">' +
+    tagHtml +
+    '      <span class="card-meta">Provided by <strong style="color:var(--text)">' + escapeHtml(s.provider_name) + '</strong></span>' +
+    '    </div>' +
+    '    <div class="product-detail-price">' + escapeHtml(s.price) + '</div>' +
+    '    <p class="product-detail-desc">' + escapeHtml(s.description) + '</p>' +
+    '    <div class="product-detail-actions">' +
+    '      <button type="button" class="btn btn-blue" onclick="bookService(' + s.id + ',' + JSON.stringify(s.name) + ')">Book now</button>' +
+    '      <a href="services.html" class="btn btn-outline">All services</a>' +
+    '    </div>' +
+    '  </div>' +
+    '</div>';
+}
+
+function showNotFound(root) {
+  document.title = 'Service not found — CyberMart';
+  root.innerHTML =
+    '<div class="product-not-found">' +
+    '<div class="section-title" style="justify-content:center">Service not found</div>' +
+    '<p>We couldn\'t find this service. It may have been removed or the ID is invalid.</p>' +
+    '<a href="services.html" class="btn btn-primary">Back to Services</a>' +
+    '</div>';
+}
+
+renderDetail();
+</script>
+</body>
+</html>
