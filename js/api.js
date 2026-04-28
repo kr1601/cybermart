@@ -395,8 +395,8 @@ function renderProductCards(list, containerId) {
         <div class="card-meta">by ${seller}</div>
         <div class="card-price">${priceDisp}</div>
         <div class="card-actions">
-          <button type="button" class="btn btn-primary btn-sm"
-            onclick='addToCart(${p.id}, ${JSON.stringify(String(p.name || ''))})'>Add to Cart</button>
+          <button type="button" class="btn btn-primary btn-sm cm-cart-btn"
+            data-cart="${encodeURIComponent(JSON.stringify({ id: p.id, name: String(p.name || '') }))}">Add to Cart</button>
           <a href="product-detail.html?id=${p.id}" class="btn btn-outline btn-sm"
             >Details</a>
         </div>
@@ -425,7 +425,7 @@ function renderServiceCards(list, containerId) {
         <div class="card-meta">by ${escapeNavHtml(s.provider_name || s.provider || 'Unknown')}</div>
         <div class="card-price">${s.price}</div>
         <div class="card-actions">
-          <button type="button" class="btn btn-blue btn-sm" onclick='bookService(${s.id}, ${JSON.stringify(String(s.name || ''))})'>Book Now</button>
+          <button type="button" class="btn btn-blue btn-sm cm-book-btn" data-service-id="${String(s.id).replace(/"/g, '&quot;')}">Book Now</button>
           <a href="${pageHref('service-detail.html', { id: s.id })}" class="btn btn-outline btn-sm">Info</a>
         </div>
       </div>
@@ -434,10 +434,40 @@ function renderServiceCards(list, containerId) {
 
 initNavAuthState();
 
-/* Inline onclick handlers must resolve addToCart/bookService in all hosts (strict mode / deploy). */
+/* Delegate cart/book buttons — avoids broken onclick HTML when product names contain quotes/SVG-breakers */
+if (typeof document !== 'undefined' && typeof window !== 'undefined' && !window.__cmCartBookDelegateInstalled) {
+  window.__cmCartBookDelegateInstalled = true;
+  document.addEventListener('click', function (e) {
+    var cart = e.target && e.target.closest ? e.target.closest('.cm-cart-btn') : null;
+    if (cart) {
+      e.preventDefault();
+      try {
+        var raw = cart.getAttribute('data-cart');
+        if (!raw) return;
+        var payload = JSON.parse(decodeURIComponent(raw));
+        if (payload != null && payload.id != null) {
+          addToCart(payload.id, String(payload.name != null ? payload.name : ''));
+        }
+      } catch (err) {
+        console.error('[CyberMart] Add to cart', err);
+      }
+      return;
+    }
+    var book = e.target && e.target.closest ? e.target.closest('.cm-book-btn') : null;
+    if (book) {
+      e.preventDefault();
+      var sid = book.getAttribute('data-service-id');
+      if (sid == null || sid === '') return;
+      bookService(Number(sid), '');
+    }
+  });
+}
+
+/* Inline handlers removed in favor of delegation; globals kept for callers that still onclick= */
 if (typeof window !== 'undefined') {
   window.addToCart = addToCart;
   window.bookService = bookService;
   window.pageHref = pageHref;
+  window.__cybermartGetApiBase = getApiBase;
 }
 

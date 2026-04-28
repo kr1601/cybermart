@@ -106,7 +106,7 @@ function renderProduct(root, p) {
     '    <p class="product-detail-desc">' + escapeHtml(p.description) + '</p>' +
     (featuresHtml ? '<div class="product-detail-features-title">Key features</div><ul class="product-detail-features">' + featuresHtml + '</ul>' : '') +
     '    <div class="product-detail-actions">' +
-    '      <button type="button" class="btn btn-primary" onclick="addToCart(' + p.id + ',' + JSON.stringify(p.name) + ')">Add to Cart</button>' +
+    '      <button type="button" class="btn btn-primary cm-cart-btn" data-cart="' + encodeURIComponent(JSON.stringify({ id: p.id, name: String(p.name || '') })) + '">Add to Cart</button>' +
     '      <a href="products.html" class="btn btn-outline">Continue shopping</a>' +
     '    </div>' +
     '  </div>' +

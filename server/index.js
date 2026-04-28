@@ -27,6 +27,7 @@ const ALLOWED_ORIGINS = new Set([
   ...ALLOWED_ORIGINS_EXTRA
 ]);
 
+/** Free InfinityFree subdomains (and legacy mirrors). Custom domains must be listed in ALLOWED_ORIGINS. */
 function isInfinityFreeOrigin(origin) {
   try {
     const u = new URL(origin);
@@ -35,7 +36,13 @@ function isInfinityFreeOrigin(origin) {
       host === 'infinityfree.me' ||
       host.endsWith('.infinityfree.me') ||
       host === 'infinityfreeapp.com' ||
-      host.endsWith('.infinityfreeapp.com')
+      host.endsWith('.infinityfreeapp.com') ||
+      host === 'epizy.com' ||
+      host.endsWith('.epizy.com') ||
+      host === 'rf.gd' ||
+      host.endsWith('.rf.gd') ||
+      host === 'great-site.net' ||
+      host.endsWith('.great-site.net')
     );
   } catch {
     return false;

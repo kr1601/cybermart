@@ -36,12 +36,15 @@
     if (explicit && String(explicit).trim()) {
       return String(explicit).trim().replace(/\/+$/, '');
     }
-    // Same origin as REST API: …/api + /ai/chat → …/api/ai/chat (avoids typos vs /api/chat).
-    var apiBase = env.API_BASE;
-    if (apiBase && String(apiBase).trim()) {
-      return String(apiBase).trim().replace(/\/+$/, '') + '/ai/chat';
+    // Prefer api.js getApiBase() (localhost vs production DEFAULT); env-config.js alone may be missing after upload.
+    var base = '';
+    if (typeof window.__cybermartGetApiBase === 'function') {
+      base = String(window.__cybermartGetApiBase() || '').trim().replace(/\/+$/, '');
     }
-    return '';
+    if (!base && env.API_BASE && String(env.API_BASE).trim()) {
+      base = String(env.API_BASE).trim().replace(/\/+$/, '');
+    }
+    return base ? base + '/ai/chat' : '';
   }
 
   const SYSTEM_PROMPT = `You are CyberMart's AI assistant for a cybersecurity marketplace (English only).

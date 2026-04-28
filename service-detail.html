@@ -94,7 +94,7 @@ function renderService(root, s) {
     '    <div class="product-detail-price">' + escapeHtml(s.price) + '</div>' +
     '    <p class="product-detail-desc">' + escapeHtml(s.description) + '</p>' +
     '    <div class="product-detail-actions">' +
-    '      <button type="button" class="btn btn-blue" onclick="bookService(' + s.id + ',' + JSON.stringify(s.name) + ')">Book now</button>' +
+    '      <button type="button" class="btn btn-blue cm-book-btn" data-service-id="' + String(s.id).replace(/"/g, '&quot;') + '">Book now</button>' +
     '      <a href="services.html" class="btn btn-outline">All services</a>' +
     '    </div>' +
     '  </div>' +
