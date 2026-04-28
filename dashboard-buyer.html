@@ -41,7 +41,7 @@
       <div class="section-title">Dashboard Overview</div>
       <div class="stats-row">
         <div class="stat-card green"><div class="stat-val" id="stat-orders">—</div><div class="stat-label">Total Orders</div></div>
-        <div class="stat-card blue"><div class="stat-val">0</div><div class="stat-label">Active Bookings</div></div>
+        <div class="stat-card blue"><div class="stat-val" id="stat-bookings">—</div><div class="stat-label">Bookings</div></div>
         <div class="stat-card warn"><div class="stat-val" id="stat-spent">—</div><div class="stat-label">Total Spent</div></div>
       </div>
       <div class="alert alert-warn">⚠️ MFA is recommended for your account — enable it in settings.</div>
@@ -70,21 +70,27 @@
       <div class="section-title">Service Bookings</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Booking ID</th><th>Service</th><th>Provider</th><th>Date</th><th>Status</th></tr></thead>
-        <tbody>
-          <tr><td colspan="5" style="text-align:center;color:var(--muted)">No bookings yet.</td></tr>
+        <tbody id="bookings-body">
+          <tr><td colspan="5" style="text-align:center;color:var(--muted)">Loading…</td></tr>
         </tbody>
       </table></div>
     </div>
 
   </div>
 </div>
-<script src="js/api.js"></script>
 <script src="js/env-config.js"></script>
+<script src="js/api.js"></script>
 <script src="js/cybermart-assistant.js"></script>
 <script>
 requireAuth(['buyer']);
 
 document.getElementById('sidebar-name').textContent = getName() || 'Buyer';
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
 
 function showTab(tab, btn) {
   document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
@@ -145,7 +151,43 @@ async function loadOrders() {
   document.getElementById('all-orders-body').innerHTML = allRows;
 }
 
+async function loadBookings() {
+  const data = await apiGet('/bookings/mine', true);
+  const tbody = document.getElementById('bookings-body');
+  const stat = document.getElementById('stat-bookings');
+  if (!tbody) return;
+
+  if (data.error || !Array.isArray(data)) {
+    tbody.innerHTML =
+      '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Could not load bookings.</td></tr>';
+    if (stat) stat.textContent = '—';
+    return;
+  }
+
+  if (stat) stat.textContent = String(data.length);
+
+  if (data.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No bookings yet.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data
+    .map(
+      (b) => `
+    <tr>
+      <td><span style="font-family:var(--font-mono)">#${b.id}</span></td>
+      <td>${escapeHtml(b.service_name || '')}</td>
+      <td>${escapeHtml(b.provider_name || '—')}</td>
+      <td>${formatDate(b.scheduled_date)}</td>
+      <td>${statusTag(b.status)}</td>
+    </tr>`
+    )
+    .join('');
+}
+
 loadOrders();
+loadBookings();
 </script>
 </body>
 </html>

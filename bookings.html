@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Book service — CyberMart</title>
+<link rel="stylesheet" href="css/style.css"/>
+<style>
+.book-wrap{max-width:560px;margin:0 auto;padding:2rem;}
+.service-banner{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem;}
+.cal-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.cal-header{display:flex;align-items:center;justify-content:space-between;padding:.7rem 1rem;border-bottom:1px solid var(--border);}
+.cal-header .month-label{font-weight:700;font-size:.95rem;color:var(--text);}
+.cal-nav-btn{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;width:28px;height:28px;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.cal-nav-btn:hover{border-color:var(--accent);color:var(--accent);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);}
+.cal-dow{text-align:center;padding:8px 0 5px;font-size:.7rem;font-weight:700;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;}
+.cal-day{text-align:center;padding:7px 0;font-size:.85rem;color:var(--text);cursor:pointer;border-radius:6px;margin:2px;position:relative;}
+.cal-day:hover:not(.disabled):not(.empty){background:rgba(0,240,128,.15);color:var(--accent);}
+.cal-day.disabled{color:var(--border);cursor:default;}
+.cal-day.selected{background:var(--accent);color:#000;font-weight:700;}
+.cal-day.today:not(.selected)::after{content:'';display:block;width:4px;height:4px;background:var(--accent);border-radius:50%;position:absolute;bottom:3px;left:50%;transform:translateX(-50%);}
+.time-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
+.time-slot{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:7px 0;text-align:center;font-size:.82rem;cursor:pointer;color:var(--text);}
+.time-slot:hover:not(.slot-past){border-color:var(--accent);color:var(--accent);}
+.time-slot.selected{background:var(--accent);color:#000;font-weight:700;border-color:var(--accent);}
+.time-slot.slot-past{opacity:.3;cursor:default;pointer-events:none;}
+.sel-date-label{font-size:.82rem;color:var(--accent);margin-bottom:10px;min-height:1.2em;}
+.bk-summary{display:none;align-items:center;gap:10px;background:rgba(0,240,128,.1);border:1px solid rgba(0,240,128,.3);border-radius:8px;padding:9px 14px;margin-bottom:1rem;font-size:.88rem;color:var(--accent);font-weight:600;}
+.bk-summary.show{display:flex;}
+.bk-summary .clear-btn{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;}
+</style>
+</head>
+<body>
+<div id="navbar-placeholder"></div>
+<div class="container book-wrap">
+  <div class="section-title">📅 Book a service</div>
+  <div id="root">
+    <p style="color:var(--muted);text-align:center">Loading…</p>
+  </div>
+</div>
+<footer>
+  <span>© 2025 CyberMart — Group 10</span>
+  <span class="tag tag-green">🔒 SSL Secured</span>
+</footer>
+<script src="js/env-config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/cybermart-assistant.js"></script>
+<script>
+requireAuth(['buyer']);
+renderNavbar();
+
+function escapeHtml(str) {
+  var d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+function serviceDetailHref(id) {
+  var u = new URL('service-detail.html', window.location.href);
+  u.searchParams.set('id', String(id));
+  return u.href;
+}
+
+function pageHrefHtml(filename) {
+  return escapeHtml(new URL(filename, window.location.href).href);
+}
+
+var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+var SLOTS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
+  '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'];
+
+var _today = new Date();
+var _viewY = _today.getFullYear();
+var _viewM = _today.getMonth();
+var _selDate = null;
+var _selTime = null;
+var _serviceIdForSubmit = null;
+
+function pad2(n) {
+  return n < 10 ? '0' + n : String(n);
+}
+
+function fmt12h(hour24, minute) {
+  var ampm = hour24 < 12 ? 'AM' : 'PM';
+  var h12 = hour24 % 12;
+  if (h12 === 0) h12 = 12;
+  return h12 + ':' + pad2(minute) + ' ' + ampm;
+}
+
+function startOfDay(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function combineDateAndSlot(dateObj, slotStr) {
+  var parts = slotStr.split(':');
+  var hh = parseInt(parts[0], 10);
+  var mm = parseInt(parts[1], 10);
+  var y = dateObj.getFullYear();
+  var mo = dateObj.getMonth() + 1;
+  var day = dateObj.getDate();
+  return y + '-' + pad2(mo) + '-' + pad2(day) + ' ' + pad2(hh) + ':' + pad2(mm) + ':00';
+}
+
+function renderCalendar() {
+  var label = document.getElementById('month-label');
+  var grid = document.getElementById('cal-grid');
+  if (!label || !grid) return;
+
+  label.textContent = MONTHS[_viewM] + ' ' + _viewY;
+  grid.innerHTML = '';
+
+  ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].forEach(function (dow) {
+    var el = document.createElement('div');
+    el.className = 'cal-dow';
+    el.textContent = dow;
+    grid.appendChild(el);
+  });
+
+  var firstDow = new Date(_viewY, _viewM, 1).getDay();
+  var daysInMonth = new Date(_viewY, _viewM + 1, 0).getDate();
+  var i;
+  for (i = 0; i < firstDow; i++) {
+    var pad = document.createElement('div');
+    pad.className = 'cal-day empty';
+    grid.appendChild(pad);
+  }
+
+  var todayStart = startOfDay(_today);
+
+  for (var day = 1; day <= daysInMonth; day++) {
+    var cell = document.createElement('div');
+    cell.className = 'cal-day';
+    cell.textContent = day;
+    var dt = new Date(_viewY, _viewM, day);
+    var dtStart = startOfDay(dt);
+
+    if (dtStart < todayStart) {
+      cell.classList.add('disabled');
+    } else {
+      if (dtStart.getTime() === startOfDay(_today).getTime()) {
+        cell.classList.add('today');
+      }
+      if (_selDate && dtStart.getTime() === startOfDay(_selDate).getTime()) {
+        cell.classList.add('selected');
+      }
+      cell.addEventListener('click', (function (d) {
+        return function () {
+          _selDate = d;
+          _selTime = null;
+          renderCalendar();
+          renderTimeSlots();
+          updateSummary();
+        };
+      })(new Date(_viewY, _viewM, day)));
+    }
+    grid.appendChild(cell);
+  }
+
+  var prev = document.getElementById('prev-btn');
+  var next = document.getElementById('next-btn');
+  if (prev) {
+    prev.onclick = function () {
+      _viewM--;
+      if (_viewM < 0) {
+        _viewM = 11;
+        _viewY--;
+      }
+      renderCalendar();
+    };
+  }
+  if (next) {
+    next.onclick = function () {
+      _viewM++;
+      if (_viewM > 11) {
+        _viewM = 0;
+        _viewY++;
+      }
+      renderCalendar();
+    };
+  }
+}
+
+function renderTimeSlots() {
+  var section = document.getElementById('time-section');
+  var labelEl = document.getElementById('sel-date-label');
+  var grid = document.getElementById('time-grid');
+  if (!section || !grid || !_selDate) return;
+
+  section.style.display = 'block';
+  labelEl.textContent = _selDate.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric'
+  });
+  grid.innerHTML = '';
+
+  var selDayStart = startOfDay(_selDate);
+  var todayStart = startOfDay(_today);
+  var isToday = selDayStart.getTime() === todayStart.getTime();
+  var nowH = _today.getHours();
+  var nowM = _today.getMinutes();
+
+  SLOTS.forEach(function (slot) {
+    var hm = slot.split(':');
+    var h = parseInt(hm[0], 10);
+    var m = parseInt(hm[1], 10);
+    var el = document.createElement('div');
+    el.className = 'time-slot';
+    el.textContent = fmt12h(h, m);
+
+    var past = isToday && (h < nowH || (h === nowH && m <= nowM));
+    if (past) {
+      el.classList.add('slot-past');
+    } else {
+      if (_selTime === slot) el.classList.add('selected');
+      el.addEventListener('click', function () {
+        _selTime = slot;
+        renderTimeSlots();
+        updateSummary();
+      });
+    }
+    grid.appendChild(el);
+  });
+}
+
+function updateSummary() {
+  var sum = document.getElementById('bk-summary');
+  var txt = document.getElementById('summary-text');
+  if (!sum || !txt) return;
+
+  if (_selDate && _selTime) {
+    var hm = _selTime.split(':');
+    var h = parseInt(hm[0], 10);
+    var mm = parseInt(hm[1], 10);
+    txt.textContent =
+      _selDate.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      }) +
+      ' at ' +
+      fmt12h(h, mm);
+    sum.classList.add('show');
+  } else {
+    sum.classList.remove('show');
+  }
+}
+
+function wireClearButton() {
+  var btn = document.getElementById('clear-btn');
+  if (!btn) return;
+  btn.onclick = function () {
+    _selDate = null;
+    _selTime = null;
+    var ts = document.getElementById('time-section');
+    if (ts) ts.style.display = 'none';
+    updateSummary();
+    renderCalendar();
+  };
+}
+
+function buildFormHtml(s) {
+  _serviceIdForSubmit = s.id;
+  return (
+    '<div class="service-banner">' +
+    '  <div style="font-weight:800;font-size:1.05rem">' +
+    escapeHtml(s.name) +
+    '</div>' +
+    '  <div style="color:var(--muted);font-size:0.9rem;margin-top:0.35rem">' +
+    escapeHtml(s.provider_name || 'Provider') +
+    ' · ' +
+    escapeHtml(
+      Number.isFinite(parseFloat(s.price))
+        ? '$' + parseFloat(s.price).toFixed(2)
+        : String(s.price || '')
+    ) +
+    '</div>' +
+    '</div>' +
+    '<div class="auth-box">' +
+    '  <div class="form-group">' +
+    '    <label class="form-label">Preferred date</label>' +
+    '    <div class="cal-box">' +
+    '      <div class="cal-header">' +
+    '        <button type="button" class="cal-nav-btn" id="prev-btn">&#8249;</button>' +
+    '        <span class="month-label" id="month-label"></span>' +
+    '        <button type="button" class="cal-nav-btn" id="next-btn">&#8250;</button>' +
+    '      </div>' +
+    '      <div class="cal-grid" id="cal-grid"></div>' +
+    '    </div>' +
+    '  </div>' +
+    '  <div class="form-group" id="time-section" style="display:none">' +
+    '    <label class="form-label">Preferred time</label>' +
+    '    <div class="sel-date-label" id="sel-date-label"></div>' +
+    '    <div class="time-grid" id="time-grid"></div>' +
+    '  </div>' +
+    '  <div class="bk-summary" id="bk-summary">' +
+    '    <span>&#10003;</span><span id="summary-text"></span>' +
+    '    <button type="button" class="clear-btn" id="clear-btn">&#215;</button>' +
+    '  </div>' +
+    '  <div class="form-group">' +
+    '    <label class="form-label">Notes (optional)</label>' +
+    '    <textarea class="form-input" id="bk-notes" rows="3" placeholder="Goals, constraints, contact preference…"></textarea>' +
+    '  </div>' +
+    '  <div id="bk-err" style="display:none" class="alert alert-warn"></div>' +
+    '  <button type="button" class="btn btn-primary form-btn" style="width:100%" id="bk-confirm-btn">Confirm booking</button>' +
+    '  <a class="btn btn-outline form-btn" style="width:100%;margin-top:0.5rem;display:block;text-align:center" href="' +
+    escapeHtml(serviceDetailHref(s.id)) +
+    '">Service info</a>' +
+    '</div>'
+  );
+}
+
+async function init() {
+  var root = document.getElementById('root');
+  var params = new URLSearchParams(window.location.search);
+  var serviceId = params.get('service');
+
+  if (!serviceId) {
+    root.innerHTML =
+      '<div class="alert alert-warn">No service selected. Pick one from the services list.</div>' +
+      '<a href="' +
+      pageHrefHtml('services.html') +
+      '" class="btn btn-primary" style="margin-top:1rem">Browse services</a>';
+    return;
+  }
+
+  var s = await apiGet('/services/' + encodeURIComponent(serviceId), false);
+  if (s.error || s.id == null) {
+    root.innerHTML =
+      '<div class="alert alert-warn">Could not load this service.</div>' +
+      '<a href="' +
+      pageHrefHtml('services.html') +
+      '" class="btn btn-outline" style="margin-top:1rem">Back to services</a>';
+    return;
+  }
+
+  root.innerHTML = buildFormHtml(s);
+
+  document.getElementById('bk-confirm-btn').addEventListener('click', function () {
+    submitBooking(_serviceIdForSubmit);
+  });
+
+  renderCalendar();
+  wireClearButton();
+}
+
+async function submitBooking(serviceId) {
+  var errEl = document.getElementById('bk-err');
+  var notesEl = document.getElementById('bk-notes');
+  if (errEl) {
+    errEl.style.display = 'none';
+  }
+
+  if (!_selDate || !_selTime) {
+    if (errEl) {
+      errEl.textContent = 'Please choose a date and time.';
+      errEl.style.display = 'flex';
+    }
+    return;
+  }
+
+  var scheduled = combineDateAndSlot(_selDate, _selTime);
+
+  var data = await apiPost(
+    '/bookings',
+    {
+      service_id: serviceId,
+      scheduled_date: scheduled,
+      notes: notesEl ? notesEl.value.trim() : ''
+    },
+    true
+  );
+
+  if (data.error) {
+    if (errEl) {
+      var msg = data.error;
+      if (String(msg).indexOf('404') !== -1) {
+        msg =
+          'HTTP 404: the API has no /bookings route yet. Redeploy the Railway server with the latest code (including server/routes/bookings.js). Also set API_BASE in js/env-config.js to …/api (e.g. https://YOUR-APP.up.railway.app/api).';
+      }
+      errEl.textContent = msg;
+      errEl.style.display = 'flex';
+    }
+    return;
+  }
+
+  alert('Booking saved! You can view it under Bookings on your dashboard.');
+  window.location.href = new URL('dashboard-buyer.html', window.location.href).href;
+}
+
+init();
+</script>
+</body>
+</html>

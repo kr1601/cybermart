@@ -215,7 +215,7 @@ async function boot() {
       document.getElementById('error-msg').style.display = 'flex';
     }
   } else if (!cfg.paymentsEnabled) {
-    note.innerHTML = 'Demo checkout: orders are recorded without charging a card. On the API host, set <code>STRIPE_SECRET_KEY</code> and <code>STRIPE_PUBLISHABLE_KEY</code> for live Stripe.';
+    note.innerHTML = 'Demo checkout: orders are recorded without charging a card.';
     note.className = 'alert alert-warn';
     document.getElementById('demo-payment-fields').style.display = 'block';
     document.getElementById('stripe-panel').style.display = 'none';

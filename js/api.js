@@ -41,7 +41,24 @@ function getApiBase() {
 }
 
 function apiUrl(endpoint) {
-  return getApiBase() + endpoint;
+  const base = String(getApiBase()).replace(/\/+$/, '');
+  let ep = String(endpoint || '');
+  if (!ep.startsWith('/')) ep = '/' + ep;
+  return base + ep;
+}
+
+/** Resolve a site page URL with query params (works when the site lives under a subpath, e.g. GitHub Pages /repo/). */
+function pageHref(filename, queryParams) {
+  if (typeof window === 'undefined') return filename;
+  const u = new URL(filename, window.location.href);
+  if (queryParams && typeof queryParams === 'object') {
+    Object.keys(queryParams).forEach((k) => {
+      if (queryParams[k] != null && queryParams[k] !== '') {
+        u.searchParams.set(k, String(queryParams[k]));
+      }
+    });
+  }
+  return u.href;
 }
 
 // ── Storage helpers ──────────────────────────────────────────
@@ -387,7 +404,7 @@ function renderServiceCards(list, containerId) {
         <div class="card-price">${s.price}</div>
         <div class="card-actions">
           <button type="button" class="btn btn-blue btn-sm" onclick='bookService(${s.id}, ${JSON.stringify(String(s.name || ''))})'>Book Now</button>
-          <a href="service-detail.html?id=${s.id}" class="btn btn-outline btn-sm">Details</a>
+          <a href="${pageHref('service-detail.html', { id: s.id })}" class="btn btn-outline btn-sm">Info</a>
         </div>
       </div>
     </div>`).join('');
@@ -399,5 +416,6 @@ initNavAuthState();
 if (typeof window !== 'undefined') {
   window.addToCart = addToCart;
   window.bookService = bookService;
+  window.pageHref = pageHref;
 }
 

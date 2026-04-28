@@ -100,6 +100,7 @@ const productRoutes = require('./routes/products');
 const servicesRoutes = require('./routes/services');
 const cartRoutes = require('./routes/cart');
 const orderRoutes = require('./routes/orders');
+const bookingRoutes = require('./routes/bookings');
 const mfaRoutes = require('./routes/mfa');
 const aiRoutes = require('./routes/ai');
 
@@ -110,6 +111,9 @@ app.use('/api/products', productRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/bookings', bookingRoutes);
+/** Same router without /api prefix — avoids 404 if a gateway or mis-set API_BASE hits …/bookings instead of …/api/bookings. */
+app.use('/bookings', bookingRoutes);
 app.use('/api/mfa', mfaRoutes);
 app.use('/api/ai', aiRoutes);
 
