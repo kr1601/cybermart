@@ -53,8 +53,8 @@ main { flex: 1; display: flex; }
   </div>
 </main>
 
-<script src="js/api.js"></script>
 <script src="js/env-config.js"></script>
+<script src="js/api.js"></script>
 <script src="js/cybermart-assistant.js"></script>
 <script>
 
@@ -89,6 +89,12 @@ async function doLogin() {
 
   if (data.token) {
     setSession(data.token, data.role, data.name || email);
+    var params = new URLSearchParams(window.location.search);
+    var next = params.get('next');
+    if (next && /^[a-zA-Z0-9][a-zA-Z0-9_.-]*\.html$/.test(next)) {
+      window.location.href = new URL(next, window.location.href).href;
+      return;
+    }
     redirectByRole(data.role);
   }
 }

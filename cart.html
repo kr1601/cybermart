@@ -37,7 +37,7 @@
         <span>Total</span>
         <span id="total" style="color:var(--accent)">$0.00</span>
       </div>
-      <button onclick="doCheckout()" class="btn btn-primary form-btn" style="width:100%;margin-top:1rem">
+      <button type="button" onclick="doCheckout()" class="btn btn-primary form-btn" style="width:100%;margin-top:1rem">
         Proceed to Checkout
       </button>
       <a href="products.html" class="btn btn-outline form-btn" style="width:100%;margin-top:0.5rem">
@@ -103,14 +103,7 @@ async function removeItem(id) {
 }
 
 async function doCheckout() {
-  if (!confirm('Place order for all items?')) return;
-  const data = await apiPost('/orders/checkout', {}, true);
-  if (data.error) {
-    alert('⚠ ' + data.error);
-  } else {
-    alert('✅ Order placed!');
-    window.location.href = 'dashboard-buyer.html';
-  }
+  window.location.href = new URL('checkout.html', window.location.href).href;
 }
 
 loadCart();

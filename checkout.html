@@ -10,19 +10,20 @@
 .summary-row{display:flex;justify-content:space-between;margin-bottom:0.7rem;font-size:0.9rem;}
 .summary-row.total{font-weight:800;font-size:1.1rem;border-top:1px solid var(--border);padding-top:0.7rem;margin-top:0.7rem;}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+#stripe-payment-element{margin-top:0.75rem;padding:0.25rem 0;}
 </style>
 </head>
 <body>
 <div id="navbar-placeholder"></div>
 <div class="checkout-wrap">
   <div class="section-title">💳 Secure Checkout</div>
-  <div class="alert alert-success">🔒 Your connection is encrypted. Payment processed via tokenized gateway.</div>
+  <div id="checkout-mode-note" class="alert alert-success">Checking out…</div>
 
   <div id="cart-summary" class="auth-box" style="margin-bottom:1rem">
     <div style="font-weight:700;margin-bottom:1rem">Order Summary</div>
     <div id="summary-items" style="color:var(--muted);font-size:0.9rem">Loading cart...</div>
     <div class="summary-row total" style="margin-top:1rem">
-      <span>Total Due</span>
+      <span>Total Due <span style="font-weight:400;color:var(--muted);font-size:0.8rem">(incl. tax)</span></span>
       <span id="total-due" style="color:var(--accent)">—</span>
     </div>
   </div>
@@ -37,16 +38,19 @@
     </div>
   </div>
 
-  <div class="auth-box">
-    <div style="font-weight:700;margin-bottom:1rem">Payment <span class="tag tag-green">Tokenized</span></div>
-    <div class="form-group"><label class="form-label">Card Number</label><input type="text" class="form-input" placeholder="•••• •••• •••• ••••" maxlength="19"/></div>
-    <div class="two-col">
-      <div class="form-group"><label class="form-label">Expiry</label><input type="text" class="form-input" placeholder="MM/YY"/></div>
-      <div class="form-group"><label class="form-label">CVV</label><input type="text" class="form-input" placeholder="•••"/></div>
-    </div>
-    <div id="error-msg" style="display:none" class="alert alert-warn"></div>
-    <button class="btn btn-primary form-btn" onclick="placeOrder()">Place Order Securely</button>
+  <div id="stripe-panel" class="auth-box" style="display:none;margin-bottom:1rem">
+    <div style="font-weight:700;margin-bottom:0.5rem">Payment <span class="tag tag-green">Stripe</span></div>
+    <p style="font-size:0.85rem;color:var(--muted);margin:0 0 0.5rem">Card details are collected by Stripe. We never store your full card number.</p>
+    <div id="stripe-payment-element"></div>
   </div>
+
+  <div id="demo-payment-fields" class="auth-box" style="display:none">
+    <div style="font-weight:700;margin-bottom:1rem">Payment <span class="tag tag-green">Demo</span></div>
+    <p style="font-size:0.85rem;color:var(--muted)">No card processing in demo mode.</p>
+  </div>
+
+  <div id="error-msg" style="display:none" class="alert alert-warn"></div>
+  <button type="button" class="btn btn-primary form-btn" style="width:100%" onclick="placeOrder()" id="pay-btn">Place Order Securely</button>
 </div>
 <script src="js/env-config.js"></script>
 <script src="js/api.js"></script>
@@ -55,58 +59,311 @@
 requireAuth(['buyer']);
 renderNavbar();
 
-// Pre-fill name from session
 document.getElementById('ship-name').value = getName() || '';
 
-// Load cart summary
+let stripeClient = null;
+let stripeElements = null;
+let lastClientSecret = null;
+
+function loadStripeJs() {
+  if (window.Stripe) return Promise.resolve();
+  return new Promise(function (resolve, reject) {
+    var s = document.createElement('script');
+    s.src = 'https://js.stripe.com/v3/';
+    s.onload = resolve;
+    s.onerror = function () { reject(new Error('Could not load Stripe.js')); };
+    document.head.appendChild(s);
+  });
+}
+
+/** Same URL rules as cart; never throws — avoids stuck “loading” if fetch fails. */
+async function loadClientConfig() {
+  var data = await apiGet('/payments/client-config', false);
+  if (data.error) {
+    return {
+      paymentsEnabled: false,
+      publishableKey: '',
+      fetchError: data.error
+    };
+  }
+  return {
+    paymentsEnabled: !!data.paymentsEnabled,
+    publishableKey: data.publishableKey || '',
+    fetchError: null
+  };
+}
+
+async function handleStripeReturn() {
+  var params = new URLSearchParams(window.location.search);
+  var clientSecret = params.get('payment_intent_client_secret');
+  if (!clientSecret) return false;
+
+  await loadStripeJs();
+  var cfg = await loadClientConfig();
+  if (cfg.fetchError || !cfg.publishableKey) {
+    var errEl = document.getElementById('error-msg');
+    errEl.textContent =
+      cfg.fetchError || 'Stripe publishable key missing. Set STRIPE_PUBLISHABLE_KEY on the API.';
+    errEl.style.display = 'flex';
+    return true;
+  }
+
+  var stripe = Stripe(cfg.publishableKey);
+  var retrieved = await stripe.retrievePaymentIntent(clientSecret);
+  if (retrieved.error || retrieved.paymentIntent.status !== 'succeeded') {
+    var errEl = document.getElementById('error-msg');
+    errEl.textContent = (retrieved.error && retrieved.error.message) || 'Payment was not completed.';
+    errEl.style.display = 'flex';
+    return true;
+  }
+
+  var conf = await apiPost('/payments/confirm', {
+    paymentIntentId: retrieved.paymentIntent.id
+  }, true);
+
+  if (conf.error) {
+    document.getElementById('error-msg').textContent = conf.error;
+    document.getElementById('error-msg').style.display = 'flex';
+    return true;
+  }
+
+  alert('Order placed successfully! Redirecting to your dashboard…');
+  window.location.replace(new URL('dashboard-buyer.html', window.location.href).href);
+  return true;
+}
+
 async function loadCartSummary() {
-  const data = await apiGet('/cart');
+  var data = await apiGet('/cart', true);
   if (data.error || !data.items || data.items.length === 0) {
     document.getElementById('summary-items').innerHTML =
       '<div style="color:var(--muted)">Your cart is empty. <a href="products.html">Browse products</a></div>';
-    return;
+    document.getElementById('pay-btn').disabled = true;
+    return false;
   }
 
-  document.getElementById('summary-items').innerHTML = data.items.map(item => `
-    <div class="summary-row">
-      <span>${item.icon || '🔒'} ${item.name} × ${item.quantity}</span>
-      <span style="font-family:var(--font-mono)">$${parseFloat(item.subtotal).toFixed(2)}</span>
-    </div>`).join('');
+  document.getElementById('summary-items').innerHTML = data.items.map(function (item) {
+    return '<div class="summary-row">' +
+      '<span>' + (item.icon || '🔒') + ' ' + item.name + ' × ' + item.quantity + '</span>' +
+      '<span style="font-family:var(--font-mono)">$' + parseFloat(item.subtotal).toFixed(2) + '</span>' +
+      '</div>';
+  }).join('');
 
-  const subtotal = parseFloat(data.total);
-  const tax = subtotal * 0.0825;
-  const total = subtotal + tax;
+  var subtotal = parseFloat(data.total);
+  var tax = subtotal * 0.0825;
+  var total = subtotal + tax;
   document.getElementById('total-due').textContent = '$' + total.toFixed(2);
+  return true;
+}
+
+async function initStripePayment() {
+  var intent = await apiPost('/payments/create-intent', {}, true);
+  if (intent.error) throw new Error(intent.error);
+
+  lastClientSecret = intent.clientSecret;
+
+  var cfg = await loadClientConfig();
+  if (cfg.fetchError) throw new Error(cfg.fetchError);
+  if (!cfg.publishableKey) throw new Error('Missing publishable key from server');
+  await loadStripeJs();
+  stripeClient = Stripe(cfg.publishableKey);
+
+  var mountEl = document.getElementById('stripe-payment-element');
+  mountEl.innerHTML = '';
+
+  stripeElements = stripeClient.elements({
+    clientSecret: lastClientSecret,
+    appearance: { theme: 'stripe' }
+  });
+
+  var paymentEl = stripeElements.create('payment');
+  paymentEl.mount('#stripe-payment-element');
+}
+
+async function boot() {
+  var note = document.getElementById('checkout-mode-note');
+
+  try {
+    if (await handleStripeReturn()) return;
+
+    var hasCart = await loadCartSummary();
+    var cfg = await loadClientConfig();
+
+    if (cfg.fetchError) {
+      note.innerHTML =
+        'Cannot load payment settings: <strong>' +
+        String(cfg.fetchError).replace(/</g, '&lt;') +
+        '</strong>. Set <code>API_BASE</code> in js/env-config.js to your API (e.g. <code>https://YOUR-APP.up.railway.app/api</code>), use the same site over HTTPS if the API requires it, then refresh.';
+      note.className = 'alert alert-warn';
+      document.getElementById('stripe-panel').style.display = 'none';
+      document.getElementById('demo-payment-fields').style.display = 'none';
+      return;
+    }
+
+  if (cfg.paymentsEnabled && hasCart) {
+    note.textContent = '🔒 Live card payments via Stripe (includes estimated tax).';
+    note.className = 'alert alert-success';
+    document.getElementById('stripe-panel').style.display = 'block';
+    document.getElementById('demo-payment-fields').style.display = 'none';
+
+    try {
+      await initStripePayment();
+    } catch (e) {
+      note.textContent = 'Could not start Stripe: ' + (e.message || String(e));
+      note.className = 'alert alert-warn';
+      document.getElementById('error-msg').textContent =
+        'Payment form failed to load. Check STRIPE_PUBLISHABLE_KEY on the server and refresh. You can still try Pay — we will retry loading Stripe.';
+      document.getElementById('error-msg').style.display = 'flex';
+    }
+  } else if (!cfg.paymentsEnabled) {
+    note.innerHTML = 'Demo checkout: orders are recorded without charging a card. On the API host, set <code>STRIPE_SECRET_KEY</code> and <code>STRIPE_PUBLISHABLE_KEY</code> for live Stripe.';
+    note.className = 'alert alert-warn';
+    document.getElementById('demo-payment-fields').style.display = 'block';
+    document.getElementById('stripe-panel').style.display = 'none';
+  } else {
+    note.textContent = 'Your cart is empty.';
+    note.className = 'alert alert-warn';
+  }
+  } catch (e) {
+    note.textContent = 'Checkout failed to start: ' + (e.message || String(e));
+    note.className = 'alert alert-warn';
+    document.getElementById('stripe-panel').style.display = 'none';
+    document.getElementById('demo-payment-fields').style.display = 'none';
+    console.error(e);
+  }
 }
 
 async function placeOrder() {
-  const errEl = document.getElementById('error-msg');
+  var errEl = document.getElementById('error-msg');
+  var payBtn = document.getElementById('pay-btn');
   errEl.style.display = 'none';
 
-  const name    = document.getElementById('ship-name').value.trim();
-  const address = document.getElementById('ship-address').value.trim();
-  const city    = document.getElementById('ship-city').value.trim();
-  const zip     = document.getElementById('ship-zip').value.trim();
+  var name = document.getElementById('ship-name').value.trim();
+  var address = document.getElementById('ship-address').value.trim();
+  var city = document.getElementById('ship-city').value.trim();
+  var zip = document.getElementById('ship-zip').value.trim();
 
   if (!name || !address || !city || !zip) {
-    errEl.textContent = '⚠ Please fill in all shipping fields.';
+    errEl.textContent = 'Please fill in all shipping fields.';
     errEl.style.display = 'flex';
     return;
   }
 
-  const data = await apiPost('/orders/checkout', {});
+  try {
+    var cfg = await loadClientConfig();
+    if (cfg.fetchError) {
+      errEl.textContent = cfg.fetchError;
+      errEl.style.display = 'flex';
+      return;
+    }
 
-  if (data.error) {
-    errEl.textContent = '⚠ ' + data.error;
+    if (cfg.paymentsEnabled) {
+      if (!stripeClient || !stripeElements) {
+        try {
+          await initStripePayment();
+        } catch (retryErr) {
+          errEl.textContent =
+            'Payment form is not ready: ' + (retryErr.message || String(retryErr));
+          errEl.style.display = 'flex';
+          return;
+        }
+      }
+
+      if (!stripeClient || !stripeElements) {
+        errEl.textContent = 'Payment form is not ready yet.';
+        errEl.style.display = 'flex';
+        return;
+      }
+
+      var returnUrl = new URL('checkout.html', window.location.href).href.split('#')[0];
+
+      payBtn.disabled = true;
+      payBtn.textContent = 'Processing…';
+
+      var result = await stripeClient.confirmPayment({
+        elements: stripeElements,
+        confirmParams: {
+          return_url: returnUrl,
+          shipping: {
+            name: name,
+            address: {
+              line1: address,
+              city: city,
+              postal_code: zip,
+              country: 'US'
+            }
+          }
+        },
+        redirect: 'if_required'
+      });
+
+      payBtn.disabled = false;
+      payBtn.textContent = 'Place Order Securely';
+
+      if (result.error) {
+        errEl.textContent = result.error.message;
+        errEl.style.display = 'flex';
+        return;
+      }
+
+      var pid =
+        (result.paymentIntent && result.paymentIntent.id) ||
+        null;
+
+      if (!pid && lastClientSecret) {
+        var r2 = await stripeClient.retrievePaymentIntent(lastClientSecret);
+        if (r2.paymentIntent) pid = r2.paymentIntent.id;
+      }
+
+      if (!pid) {
+        errEl.textContent = 'Payment status unclear. Refresh and check your orders.';
+        errEl.style.display = 'flex';
+        return;
+      }
+
+      var conf = await apiPost('/payments/confirm', { paymentIntentId: pid }, true);
+      if (conf.error) {
+        errEl.textContent = conf.error;
+        errEl.style.display = 'flex';
+        return;
+      }
+
+      alert('Order placed successfully! Redirecting…');
+      window.location.href = 'dashboard-buyer.html';
+      return;
+    }
+
+    payBtn.disabled = true;
+    payBtn.textContent = 'Processing…';
+
+    var data = await apiPost('/orders/checkout', {}, true);
+
+    payBtn.disabled = false;
+    payBtn.textContent = 'Place Order Securely';
+
+    if (data.error) {
+      errEl.textContent = data.error;
+      errEl.style.display = 'flex';
+      return;
+    }
+
+    alert('Order placed successfully! Redirecting…');
+    window.location.href = 'dashboard-buyer.html';
+  } catch (e) {
+    payBtn.disabled = false;
+    payBtn.textContent = 'Place Order Securely';
+    errEl.textContent = e.message || String(e);
     errEl.style.display = 'flex';
-    return;
   }
-
-  alert('✅ Order placed successfully! Redirecting to your dashboard...');
-  window.location.href = 'dashboard-buyer.html';
 }
 
-loadCartSummary();
+boot().catch(function (err) {
+  var n = document.getElementById('checkout-mode-note');
+  if (n) {
+    n.textContent = 'Checkout error: ' + (err && err.message ? err.message : String(err));
+    n.className = 'alert alert-warn';
+  }
+  console.error(err);
+});
 </script>
 </body>
 </html>

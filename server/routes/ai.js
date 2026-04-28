@@ -4,23 +4,30 @@ const router = express.Router();
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
+/** Key is read only on the server (Railway Variables for this Node service). Never in the browser. */
+const KEY_ENV_NAMES = [
+  'OPEN_ROUTER_API_KEY',
+  'OPENROUTER_API_KEY',
+  'OPEN_ROUTER_KEY',
+  'OPENROUTER_KEY',
+  'OPEN_ROUTER_OPENROUTER',
+  'OPENAI_API_KEY'
+];
+
 function getApiKey() {
-  const keys = [
-    'OPEN_ROUTER_API_KEY',
-    'OPENROUTER_API_KEY',
-    'OPEN_ROUTER_OPENROUTER',
-    'OPENAI_API_KEY'
-  ];
-  for (const k of keys) {
-    const v = String(process.env[k] || '').trim();
+  for (const k of KEY_ENV_NAMES) {
+    let v = process.env[k];
+    if (!v) continue;
+    v = String(v).trim().replace(/^\uFEFF/, '');
     if (v) return v;
   }
   return '';
 }
 
 function useOpenRouterForKey() {
-  if (String(process.env.OPEN_ROUTER_API_KEY || '').trim()) return true;
-  if (String(process.env.OPENROUTER_API_KEY || '').trim()) return true;
+  for (const n of ['OPEN_ROUTER_API_KEY', 'OPENROUTER_API_KEY', 'OPEN_ROUTER_KEY', 'OPENROUTER_KEY']) {
+    if (String(process.env[n] || '').trim()) return true;
+  }
   return String(getApiKey()).startsWith('sk-or-');
 }
 
@@ -37,7 +44,10 @@ router.get('/chat', (req, res) => {
   res.status(200).json({
     ok: true,
     message: 'CyberMart AI proxy is mounted. Use POST with JSON body { message, history }.',
-    keyConfigured: !!getApiKey()
+    keyConfigured: !!getApiKey(),
+    keyEnvNamesChecked: KEY_ENV_NAMES,
+    hint:
+      'If keyConfigured is false: add one of keyEnvNamesChecked to Variables on this Railway service (not the MySQL plugin), save, redeploy. The browser never receives the key.'
   });
 });
 
@@ -45,9 +55,11 @@ router.get('/chat', (req, res) => {
 router.post('/chat', async (req, res) => {
   const apiKey = getApiKey();
   if (!apiKey) {
+    console.warn('[AI] No API key in process.env. Checked:', KEY_ENV_NAMES.join(', '));
     return res.status(503).json({
       error:
-        'AI not configured: set OPEN_ROUTER_API_KEY (or OPENAI_API_KEY) in server environment.'
+        'AI not configured on server: set one of OPEN_ROUTER_API_KEY, OPENROUTER_API_KEY, or OPENAI_API_KEY on this Railway service, then redeploy.',
+      keyEnvNamesChecked: KEY_ENV_NAMES
     });
   }
 
@@ -82,7 +94,9 @@ router.post('/chat', async (req, res) => {
   };
 
   if (useOpenRouter) {
-    const site = String(process.env.OPEN_ROUTER_SITE_URL || process.env.PUBLIC_URL || '').trim();
+    const site =
+      String(process.env.OPEN_ROUTER_SITE_URL || process.env.PUBLIC_URL || '').trim() ||
+      String(req.get('Origin') || req.get('Referer') || '').split(',')[0].trim();
     if (site) {
       headers['HTTP-Referer'] = site;
       headers['X-Title'] = 'CyberMart';

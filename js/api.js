@@ -4,6 +4,25 @@
 
 const DEFAULT_API_BASE = 'https://cybermart-production.up.railway.app/api';
 
+/**
+ * If API_BASE is only an origin (e.g. https://app.up.railway.app), append /api.
+ * Otherwise requests become …/payments/… instead of …/api/payments/… → HTTP 404 on Express.
+ */
+function normalizeApiRoot(base) {
+  const b = String(base).trim().replace(/\/+$/, '');
+  if (!b) return b;
+  try {
+    const u = new URL(b);
+    const pathOnly = (u.pathname || '/').replace(/\/+$/, '') || '/';
+    if (pathOnly === '/') {
+      return u.origin + '/api';
+    }
+    return u.origin + u.pathname.replace(/\/+$/, '');
+  } catch (_) {
+    return b;
+  }
+}
+
 function getApiBase() {
   const env = (typeof window !== 'undefined' && window.__CYBERMART_ENV__) || {};
   const fromEnv = env.API_BASE || (typeof window !== 'undefined' && window.CYBERMART_API_BASE);
@@ -16,8 +35,9 @@ function getApiBase() {
       window.location.hostname === 'localhost' ||
       window.location.hostname === '127.0.0.1');
 
-  const base = String((shouldPreferLocal ? 'http://localhost:3000/api' : null) || fromEnv || DEFAULT_API_BASE).trim();
-  return base.replace(/\/+$/, '');
+  let base = String((shouldPreferLocal ? 'http://localhost:3000/api' : null) || fromEnv || DEFAULT_API_BASE).trim();
+  base = base.replace(/\/+$/, '');
+  return normalizeApiRoot(base);
 }
 
 function apiUrl(endpoint) {
@@ -48,14 +68,26 @@ function redirectByRole(role) {
     seller: 'dashboard-seller.html',
     admin:  'dashboard-admin.html'
   };
-  window.location.href = map[role] || 'index.html';
+  window.location.href = new URL(map[role] || 'index.html', window.location.href).href;
+}
+
+/** Login URL that resolves correctly on GitHub Pages (/repo/) and InfinityFree. */
+function goToLoginWithReturn() {
+  const page = window.location.pathname.split('/').pop() || 'index.html';
+  const u = new URL('login.html', window.location.href);
+  u.searchParams.set('next', page);
+  window.location.assign(u.href);
 }
 
 // ── Auth guard ───────────────────────────────────────────────
 function requireAuth(allowedRoles) {
-  if (!isLoggedIn()) { window.location.href = 'login.html'; return false; }
+  if (!isLoggedIn()) {
+    goToLoginWithReturn();
+    return false;
+  }
   if (allowedRoles && !allowedRoles.includes(getRole())) {
-    window.location.href = 'index.html'; return false;
+    window.location.href = new URL('index.html', window.location.href).href;
+    return false;
   }
   return true;
 }
@@ -261,8 +293,7 @@ function renderNavbar(activePage = '') {
 // ── Add to cart (API) ─────────────────────────────────────────
 async function addToCart(id, name) {
   if (!isLoggedIn()) {
-    if (confirm(`Login required to add "${name}" to cart. Go to login?`))
-      window.location.href = 'login.html';
+    goToLoginWithReturn();
     return;
   }
   if (getRole() !== 'buyer') {
@@ -283,11 +314,12 @@ async function addToCart(id, name) {
 
 function bookService(id, name) {
   if (!isLoggedIn()) {
-    if (confirm(`Login required to book "${name}". Go to login?`))
-      window.location.href = 'login.html';
+    goToLoginWithReturn();
     return;
   }
-  window.location.href = `bookings.html?service=${id}`;
+  const b = new URL('bookings.html', window.location.href);
+  b.searchParams.set('service', String(id));
+  window.location.href = b.href;
 }
 
 // ── Utilities ─────────────────────────────────────────────────
@@ -362,4 +394,10 @@ function renderServiceCards(list, containerId) {
 }
 
 initNavAuthState();
+
+/* Inline onclick handlers must resolve addToCart/bookService in all hosts (strict mode / deploy). */
+if (typeof window !== 'undefined') {
+  window.addToCart = addToCart;
+  window.bookService = bookService;
+}
 

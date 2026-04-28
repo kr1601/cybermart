@@ -2,7 +2,8 @@
  * Load before `api.js` and `cybermart-assistant.js`.
  * Set API_BASE to your Railway API root (must end with /api).
  * AI chat URL is derived as API_BASE + '/ai/chat' unless you set AI_PROXY_URL explicitly.
- * Server needs OPEN_ROUTER_API_KEY or OPENROUTER_API_KEY on Railway for POST /api/ai/chat.
+ * AI key lives only on Railway (Variables for the Node service). Test in browser:
+ *   GET {API_BASE}/ai/chat  →  "keyConfigured": true/false
  */
 (function () {
   if (typeof window === 'undefined') return;

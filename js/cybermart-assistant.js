@@ -2,8 +2,8 @@
 // cybermart-assistant.js — CyberMart AI Assistant (OpenRouter)
 // Note: filename must not contain "chat" — InfinityFree blocks such URLs (403).
 // ============================================================
-// API key: set OPENROUTER_API_KEY in .env, then run: npm run env
-// Or set window.__CYBERMART_ENV__.OPENROUTER_API_KEY in js/env-config.js
+// Production: browser calls POST {API_BASE}/ai/chat only; OpenRouter key stays on Railway (never in this file).
+// Optional dev-only: window.__CYBERMART_ENV__.OPENROUTER_API_KEY for direct OpenRouter from the browser (not recommended).
 // Optional: OPENROUTER_MODEL (default: openrouter/free)
 // ============================================================
 
@@ -60,7 +60,7 @@ Rules:
 - Do not claim you executed cancellations or refunds; only explain how CyberMart typically handles them.`;
 
   const MAX_HISTORY = 10;
-  const STORAGE_KEY = 'cm_ai_chat_v2';
+  const STORAGE_KEY = 'cm_ai_chat_v3';
   const SIZE_STORAGE_KEY = 'cm_ai_chat_size';
   const PANEL_DEFAULT_W = 360;
   const PANEL_DEFAULT_H = 440;
@@ -280,7 +280,7 @@ Rules:
     ].join('');
     document.head.appendChild(style);
 
-    const keySet = !!getOpenRouterApiKey();
+    const keySet = !!(getAiProxyUrl() || getOpenRouterApiKey());
     const keyBadge = keySet
       ? '<span class="ai-key-badge ai-key-set">Live AI</span>'
       : '<span class="ai-key-badge ai-key-notset">Demo mode</span>';
@@ -536,7 +536,7 @@ Rules:
       }
       var greeting = keySet
         ? "Hi! I'm your CyberMart assistant. Ask about orders, login, checkout, or products."
-        : "Hi! <strong>Demo mode</strong> — add <code>OPENROUTER_API_KEY</code> to <code>.env</code>, run <code>npm install</code> and <code>npm run env</code>, then reload. Or edit <code>js/env-config.js</code>. See <code>.env.example</code>.";
+        : 'Hi! AI proxy is not configured. Set <code>API_BASE</code> in <code>js/env-config.js</code> so the client can call <code>/api/ai/chat</code>.';
       appendBubble('assistant', greeting, true);
     }
 

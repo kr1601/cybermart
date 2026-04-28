@@ -74,6 +74,22 @@ if (hasStripe) {
 ========================= */
 app.use(express.json());
 
+/* Public: lets the static site know whether to mount Stripe (publishable key is safe to expose). */
+function sendPaymentsClientConfig(res) {
+  const sk = process.env.STRIPE_SECRET_KEY;
+  const pk = process.env.STRIPE_PUBLISHABLE_KEY;
+  const enabled = !!(sk && pk);
+  res.json({
+    paymentsEnabled: enabled,
+    publishableKey: enabled ? pk : ''
+  });
+}
+
+app.get('/api/payments/client-config', (req, res) => sendPaymentsClientConfig(res));
+
+/** Misconfigured clients used origin-only API_BASE → wrong path /payments/… (404). Same JSON here. */
+app.get('/payments/client-config', (req, res) => sendPaymentsClientConfig(res));
+
 /* =========================
    ROUTES
 ========================= */

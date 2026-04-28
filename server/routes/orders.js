@@ -3,30 +3,32 @@ const router = express.Router();
 const pool = require('../db');
 const authenticate = require('../middleware/authenticate');
 const authorize = require('../middleware/authorize');
+const { computeCartTotals } = require('../lib/checkoutTotals');
 
 /* =========================
-   🛒 CHECKOUT (NO STRIPE VERSION)
+   🛒 CHECKOUT (demo only — disabled when Stripe is configured)
 ========================= */
 router.post('/checkout', authenticate, authorize('buyer'), async (req, res) => {
+  if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PUBLISHABLE_KEY) {
+    return res.status(400).json({
+      error:
+        'Card checkout is enabled. Open checkout.html and pay with Stripe.'
+    });
+  }
+
   const conn = await pool.getConnection();
 
   try {
     const userId = req.user.id;
 
-    const [cartItems] = await conn.query(
-      `SELECT ci.product_id, ci.quantity, p.price, p.stock, p.name
-       FROM cart_items ci
-       JOIN products p ON ci.product_id = p.id
-       WHERE ci.user_id = ?`,
-      [userId]
-    );
-
-    if (cartItems.length === 0) {
+    const totals = await computeCartTotals(userId);
+    if (!totals) {
       conn.release();
       return res.status(400).json({ error: 'Cart is empty' });
     }
 
-    // stock check
+    const { cartItems, total } = totals;
+
     for (const item of cartItems) {
       if (item.stock < item.quantity) {
         conn.release();
@@ -37,11 +39,6 @@ router.post('/checkout', authenticate, authorize('buyer'), async (req, res) => {
     }
 
     await conn.beginTransaction();
-
-    const total = cartItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
 
     // ✅ MAIN ORDER
     const [orderResult] = await conn.query(
