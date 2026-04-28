@@ -8,6 +8,7 @@
 // ============================================================
 
 (function () {
+  const AI_WIDGET_BUILD = '2026-04-27c';
   const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
   const DEFAULT_MODEL = 'openrouter/free';
 
@@ -221,6 +222,7 @@ Rules:
   }
 
   function buildWidget() {
+    console.info('[CyberMart] cybermart-assistant.js build', AI_WIDGET_BUILD);
     const style = document.createElement('style');
     style.textContent = [
       '.ai-chat-root{position:fixed;bottom:1.5rem;right:1.5rem;z-index:2147483000;font-family:inherit}',

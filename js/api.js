@@ -3,6 +3,7 @@
 // ============================================================
 
 const DEFAULT_API_BASE = 'https://cybermart-production.up.railway.app/api';
+const CYBERMART_WEB_BUILD = '2026-04-27c';
 
 /**
  * If API_BASE is only an origin (e.g. https://app.up.railway.app), append /api.
@@ -38,6 +39,11 @@ function getApiBase() {
   let base = String((shouldPreferLocal ? 'http://localhost:3000/api' : null) || fromEnv || DEFAULT_API_BASE).trim();
   base = base.replace(/\/+$/, '');
   return normalizeApiRoot(base);
+}
+
+if (typeof window !== 'undefined') {
+  window.__CYBERMART_WEB_BUILD__ = CYBERMART_WEB_BUILD;
+  console.info('[CyberMart] api.js build', CYBERMART_WEB_BUILD);
 }
 
 function apiUrl(endpoint) {
