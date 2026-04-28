@@ -47,8 +47,18 @@
 <script src="js/api.js"></script>
 <script src="js/cybermart-assistant.js"></script>
 <script>
-requireAuth(['buyer']);
-renderNavbar();
+if (!isLoggedIn()) {
+  goToLoginWithReturn();
+} else if (getRole() !== 'buyer') {
+  alert(
+    'Service bookings are for buyer accounts only. You are signed in as "' +
+      (getRole() || 'unknown') +
+      '". Use a buyer account to book (this is why you were sent to the home page before).'
+  );
+  redirectByRole(getRole());
+} else {
+  renderNavbar();
+}
 
 function escapeHtml(str) {
   var d = document.createElement('div');
@@ -390,7 +400,9 @@ async function submitBooking(serviceId) {
   window.location.href = new URL('dashboard-buyer.html', window.location.href).href;
 }
 
-init();
+if (isLoggedIn() && getRole() === 'buyer') {
+  init();
+}
 </script>
 </body>
 </html>

@@ -97,9 +97,10 @@ function filterCat(cat, btn) {
 
 // ── Filter by search query ──────────────────────────────────────
 function filterProducts(q) {
-  const list = ALL_PRODUCTS.filter(p =>
-    p.name.toLowerCase().includes(q.toLowerCase()) ||
-    p.description.toLowerCase().includes(q.toLowerCase())
+  const needle = (q || '').toLowerCase();
+  const list = ALL_PRODUCTS.filter((p) =>
+    (p.name || '').toLowerCase().includes(needle) ||
+    (p.description || '').toLowerCase().includes(needle)
   );
   renderProductCards(list, 'products-grid');
 }

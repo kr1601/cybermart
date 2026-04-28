@@ -309,28 +309,50 @@ function renderNavbar(activePage = '') {
 
 // ── Add to cart (API) ─────────────────────────────────────────
 async function addToCart(id, name) {
-  if (!isLoggedIn()) {
-    goToLoginWithReturn();
-    return;
-  }
-  if (getRole() !== 'buyer') {
+  try {
+    if (!isLoggedIn()) {
+      if (
+        !confirm(
+          'You need to sign in (as a buyer) to add items to your cart.\n\nGo to the login page now?'
+        )
+      ) {
+        return;
+      }
+      goToLoginWithReturn();
+      return;
+    }
+    if (getRole() !== 'buyer') {
+      alert(
+        'Only buyer accounts can use the cart. You are signed in as ' +
+          String(getRole() || 'unknown') +
+          '. Register or log in as a buyer.'
+      );
+      return;
+    }
+    const data = await apiPost('/cart', { product_id: id, quantity: 1 }, true);
+    if (data.error) {
+      alert('⚠ ' + data.error);
+    } else {
+      alert(`✅ "${name}" added to cart!`);
+    }
+  } catch (e) {
     alert(
-      'Only buyer accounts can use the cart. You are signed in as ' +
-        String(getRole() || 'unknown') +
-        '. Use a buyer login or register as a buyer.'
+      'Could not update cart: ' +
+        (e && e.message ? e.message : String(e)) +
+        '. Check the browser console (F12) and that API_BASE in js/env-config.js points to your HTTPS Railway API.'
     );
-    return;
-  }
-  const data = await apiPost('/cart', { product_id: id, quantity: 1 }, true);
-  if (data.error) {
-    alert('⚠ ' + data.error);
-  } else {
-    alert(`✅ "${name}" added to cart!`);
   }
 }
 
 function bookService(id, name) {
   if (!isLoggedIn()) {
+    if (
+      !confirm(
+        'You need to sign in (as a buyer) to book a service.\n\nGo to the login page now?'
+      )
+    ) {
+      return;
+    }
     goToLoginWithReturn();
     return;
   }
